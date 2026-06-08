@@ -31,7 +31,6 @@ COLUMNS = [
     "媒体核心内容",
     "口播/字幕依据",
     "画面重点",
-    "商品出现方式",
     "达人说服方式",
     "内容真实感",
     "点赞为什么高/低",
@@ -369,7 +368,7 @@ def title_or_subtitle_analysis(row: dict[str, str]) -> list[str]:
 
 def interaction_sections(row: dict[str, str]) -> list[str]:
     return [
-        section_title(7, "四项互动归因"),
+        section_title(6, "四项互动归因"),
         "",
         f"#### 点赞 — {row['点赞为什么高/低']}",
         "",
@@ -393,7 +392,6 @@ def comparison_table(rows: list[dict[str, str]]) -> list[str]:
         "| S层 | " + " | ".join(row["S层命中人群"] for row in rows) + " |",
         "| 留人入口 | " + " | ".join(row["前三秒"] for row in rows) + " |",
         "| 中段承接 | " + " | ".join(row["中段停留机制"] for row in rows) + " |",
-        "| 商品出现 | " + " | ".join(row["商品出现方式"] for row in rows) + " |",
         "| 说服方式 | " + " | ".join(row["达人说服方式"] for row in rows) + " |",
         "| 真实感 | " + " | ".join(row["内容真实感"] for row in rows) + " |",
         "",
@@ -458,15 +456,11 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
         lines.extend(title_or_subtitle_analysis(row))
         lines.extend(
             [
-                section_title(4, "商品出现方式"),
-                "",
-                row["商品出现方式"],
-                "",
-                section_title(5, "说服方式"),
+                section_title(4, "说服方式"),
                 "",
                 row["达人说服方式"],
                 "",
-                section_title(6, "真实感"),
+                section_title(5, "真实感"),
                 "",
                 row["内容真实感"],
                 "",
@@ -475,7 +469,7 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
         lines.extend(interaction_sections(row))
         lines.extend(
             [
-                section_title(8, "品类连接和评论验证"),
+                section_title(7, "品类连接和评论验证"),
                 "",
                 f"**品类连接来源**：{row['品类连接来源']}",
                 "",
