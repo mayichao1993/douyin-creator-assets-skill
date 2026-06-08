@@ -5,7 +5,7 @@
 1. 账号公开互动基础盘
 2. 账号内容资产盘
    - 2A 标题/话题/商品信号粗筛
-   - 2B 视频内容细看
+   - 2B 媒体内容细看
    - 2C 优质内容到儿童营养品议题的转接预判
 
 ## 安装
@@ -72,7 +72,7 @@ basic_profile_analysis.md
 cart_profile_analysis.md（有挂车短视频样本时）
 ```
 
-生成 2B 视频细看候选清单：
+生成 2B 媒体细看候选清单：
 
 ```bash
 python3 path/to/douyin-creator-assets/scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp>
@@ -85,7 +85,7 @@ video_sample_candidates.csv
 video_sample_candidates.md
 ```
 
-下载 2B 候选视频：
+下载 2B 候选媒体：
 
 ```bash
 python3 path/to/douyin-creator-assets/scripts/download_sample_videos.py outputs/douyin_creator_assets/<timestamp>
@@ -95,12 +95,14 @@ python3 path/to/douyin-creator-assets/scripts/download_sample_videos.py outputs/
 
 ```text
 downloaded_videos.csv
-2b_<作品ID>.mp4
+2b_<作品ID>.mp4（视频作品）
+2b_<作品ID>_images/（图片/图文作品）
+2b_<作品ID>_images.json（图片/图文作品）
 2b_<作品ID>.url.txt
 2b_<作品ID>.raw.json
 ```
 
-抽帧生成视频 grid 图：
+视频作品抽帧生成 grid 图：
 
 ```bash
 python3 path/to/douyin-creator-assets/scripts/extract_video_frames.py outputs/douyin_creator_assets/<timestamp>
@@ -113,13 +115,15 @@ video_frame_grids.csv
 2b_<作品ID>_grid.jpg
 ```
 
-生成视频理解交接包：
+图片/图文作品不需要抽帧，后续 handoff 会直接带上图片文件路径。
+
+生成媒体理解交接包：
 
 ```bash
 python3 path/to/douyin-creator-assets/scripts/build_video_understanding_handoff.py outputs/douyin_creator_assets/<timestamp>
 ```
 
-交接包不绑定任何模型或厂商。它只把 mp4、抽帧图、可选字幕路径、互动数据和 2B 输出字段打包，交给 WorkBuddy 或其他能看视频的 Agent 逐条回填 JSON。
+交接包不绑定任何模型或厂商。它会把 mp4、抽帧图、图片文件、可选字幕路径、互动数据和 2B 输出字段打包，交给 WorkBuddy 或其他能看视频/图片的 Agent 逐条回填 JSON。
 
 交接包会输出：
 
@@ -134,7 +138,7 @@ video_understanding_handoff.md
 video_understanding_results.jsonl
 ```
 
-再渲染 2B 视频内容细看：
+再渲染 2B 媒体内容细看：
 
 ```bash
 python3 path/to/douyin-creator-assets/scripts/render_video_deep_dive.py outputs/douyin_creator_assets/<timestamp>
@@ -187,7 +191,8 @@ python3 path/to/douyin-creator-assets/scripts/render_nutrition_transfer.py outpu
 - 挂车短视频单独分析，不混入主页普通短视频。
 - 点赞、评论、收藏、分享必须分别看，不用总互动替代四项判断。
 - 2B 抽样必须覆盖四项互动的高位、低位和强品类连接低互动样本。
-- 2B 视频理解不绑定任何单一供应商；Skill 只负责准备交接包和渲染结果，具体视频理解可由 WorkBuddy 或其他 Agent 完成。
+- 2B 媒体理解不绑定任何单一供应商；Skill 只负责准备交接包和渲染结果，具体视频/图片理解可由 WorkBuddy 或其他 Agent 完成。
+- 2B 样本可能是视频，也可能是图片/图文；下载脚本必须按媒体类型处理，不能默认全是 mp4。
 - 2C 固定链条：
 
 ```text

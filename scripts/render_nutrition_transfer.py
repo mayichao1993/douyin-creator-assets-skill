@@ -93,7 +93,7 @@ def classify_structure(row: dict[str, str]) -> str:
     title_core = " ".join(
         [
             text(row, "作品标题"),
-            text(row, "视频核心内容"),
+            text(row, "媒体核心内容", "视频核心内容"),
         ]
     )
     blob = " ".join(
@@ -237,7 +237,7 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
         "# 优质内容到营养品的转接预判（2C）",
         "",
         f"- 来源目录：`{run_dir}`",
-        "- 依据：2A 标题/话题/公开字段粗筛 + 2B 真实视频内容细看",
+        "- 依据：2A 标题/话题/公开字段粗筛 + 2B 真实媒体内容细看",
         "- 口径：只判断已验证内容结构能否转成儿童营养品议题，不判断具体产品承接、转化率或合作价值。",
         "",
         "## 1. 2C 结论",

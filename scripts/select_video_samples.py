@@ -230,7 +230,7 @@ def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
 
 def build_md(run_dir: Path, source_path: Path, rows: list[dict[str, str]]) -> str:
     lines = [
-        "# 2B 视频细看抽样候选清单",
+        "# 2B 媒体细看抽样候选清单",
         "",
         f"- 来源目录：`{run_dir}`",
         f"- 输入文件：`{source_path.name}`",
@@ -238,9 +238,9 @@ def build_md(run_dir: Path, source_path: Path, rows: list[dict[str, str]]) -> st
         "",
         "## 使用方式",
         "",
-        "先下载这些候选视频，再做 2B 真实视频内容细看。抽样不能只看总互动，必须覆盖点赞、评论、收藏、分享的高位/低位，以及品类连接但互动低的样本。",
+        "先下载这些候选媒体，再做 2B 真实内容细看。样本可能是视频，也可能是图片/图文。抽样不能只看总互动，必须覆盖点赞、评论、收藏、分享的高位/低位，以及品类连接但互动低的样本。",
         "",
-        "## 候选视频",
+        "## 候选媒体",
         "",
         "| 建议下载 | 作品ID | 标题 | 抽样锚点 | 抽样理由 |",
         "|---|---|---|---|---|",
@@ -256,8 +256,8 @@ def build_md(run_dir: Path, source_path: Path, rows: list[dict[str, str]]) -> st
             "",
             "## 下一步",
             "",
-            "1. 下载候选视频。",
-            "2. 抽帧或直接查看视频内容。",
+            "1. 下载候选媒体。",
+            "2. 视频作品抽帧；图片/图文作品直接查看图片组。",
             "3. 生成 `video_content_deep_dive.csv` 和 `video_content_deep_dive.md`。",
             "4. 基于 2A + 2B 再生成 2C `nutrition_transfer_prediction.csv/md`。",
         ]

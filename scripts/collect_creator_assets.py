@@ -81,7 +81,9 @@ def normalize_target(target: str) -> str:
 def extract_aweme_id(url: str) -> str | None:
     patterns = [
         r"/video/(\d+)",
+        r"/note/(\d+)",
         r"/share/video/(\d+)",
+        r"/share/note/(\d+)",
         r"[?&]modal_id=(\d+)",
     ]
     for pattern in patterns:
@@ -117,16 +119,31 @@ def extract_router_data(page_html: str) -> dict[str, Any]:
 
 
 def item_from_mobile_share(aweme_id: str) -> dict[str, Any]:
-    url = f"https://www.iesdouyin.com/share/video/{aweme_id}/?from_ssr=1"
-    page_html = request_text(url, user_agent=MOBILE_USER_AGENT)
-    router = extract_router_data(page_html)
-    loader = router.get("loaderData") or {}
-    page_data = loader.get("video_(id)/page") or {}
-    video_info = page_data.get("videoInfoRes") or {}
-    items = video_info.get("item_list") or []
-    if not items:
-        raise CollectError("video_item_not_found")
-    return items[0]
+    errors: list[str] = []
+    for share_type in ["video", "note"]:
+        url = f"https://www.iesdouyin.com/share/{share_type}/{aweme_id}/?from_ssr=1"
+        try:
+            page_html = request_text(url, user_agent=MOBILE_USER_AGENT)
+            router = extract_router_data(page_html)
+            loader = router.get("loaderData") or {}
+            page_data = (
+                loader.get(f"{share_type}_(id)/page")
+                or loader.get("video_(id)/page")
+                or loader.get("note_(id)/page")
+                or {}
+            )
+            video_info = (
+                page_data.get("videoInfoRes")
+                or page_data.get("noteInfoRes")
+                or page_data.get("awemeInfoRes")
+                or {}
+            )
+            items = video_info.get("item_list") or video_info.get("aweme_list") or []
+            if items:
+                return items[0]
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{share_type}:{exc}")
+    raise CollectError("share_item_not_found:" + "；".join(errors))
 
 
 def collect_profile_items_with_playwright(sec_uid: str, count: int) -> list[dict[str, Any]]:

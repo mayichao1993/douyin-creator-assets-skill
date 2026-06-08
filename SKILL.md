@@ -1,6 +1,6 @@
 ---
 name: douyin-creator-assets
-description: 根据抖音账号分享信息、主页链接、视频链接或 aweme_id，采集达人公开作品的点赞、评论、收藏、分享等互动数据，落地达人资产库前两项：账号公开互动基础盘、账号内容资产盘。Use when building a Douyin creator asset library, creator database, 达人库, 达人资产库, 账号公开互动基础盘, 账号内容资产盘, 赞评藏转采集, 2A 内容粗筛, 2B 视频细看, or 2C 营养品议题转接预判.
+description: 根据抖音账号分享信息、主页链接、视频/图文链接或 aweme_id，采集达人公开作品的点赞、评论、收藏、分享等互动数据，落地达人资产库前两项：账号公开互动基础盘、账号内容资产盘。Use when building a Douyin creator asset library, creator database, 达人库, 达人资产库, 账号公开互动基础盘, 账号内容资产盘, 赞评藏转采集, 2A 内容粗筛, 2B 媒体细看, video/image media deep dive, or 2C 营养品议题转接预判.
 ---
 
 # Douyin Creator Assets
@@ -240,7 +240,7 @@ product、shop、cart、commodity、ecom、commerce、anchor、商品、购物�
 第二项分为三层：
 
 1. `2A 标题/话题/挂车粗筛`：用 `creator_posts.csv` 和 `raw.json` 先筛主题、商品内容信号、品类连接和互动表现。
-2. `2B 视频内容细看`：抽样看真实视频内容，核心判断这条视频打的是哪一层 S层人群，同时看前三秒、口播、画面、商品出现方式、说服方式和真实感。
+2. `2B 媒体内容细看`：抽样看真实媒体内容，核心判断这条作品打的是哪一层 S层人群；视频作品看前三秒、口播、画面、商品出现方式、说服方式和真实感，图片/图文作品看首图、前两张图、图片顺序、标题配合和继续看的理由。
 3. `2C 优质内容到营养品的转接预判`：基于 2A 和 2B 的结果，判断账号已经跑出来的优质内容结构，能不能自然迁移成儿童营养品议题。
 
 不要把 2A 当成完整内容判断。只靠标题、话题和挂车字段，只能输出粗筛结论。
@@ -262,9 +262,9 @@ python3 scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp
 1. `video_sample_candidates.csv`
 2. `video_sample_candidates.md`
 
-这两个文件只负责告诉执行者“哪些视频应该进入 2B 细看”，不替代真实视频内容判断。
+这两个文件只负责告诉执行者“哪些作品应该进入 2B 细看”，不替代真实媒体内容判断。
 
-下载候选视频时，优先运行：
+下载候选媒体时，优先运行：
 
 [`scripts/download_sample_videos.py`](scripts/download_sample_videos.py)
 
@@ -274,12 +274,19 @@ python3 scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp
 python3 scripts/download_sample_videos.py outputs/douyin_creator_assets/<timestamp>
 ```
 
-该脚本读取 `video_sample_candidates.csv`，下载建议进入 2B 的视频，并输出：
+该脚本读取 `video_sample_candidates.csv`，下载建议进入 2B 的媒体素材。不能默认所有作品都是视频；抖音也有图片/图文作品。脚本必须按媒体类型处理：
+
+- 视频作品：下载 `2b_<作品ID>.mp4`
+- 图片/图文作品：下载 `2b_<作品ID>_images/` 图片组，并生成 `2b_<作品ID>_images.json`
+
+输出：
 
 1. `downloaded_videos.csv`
 2. `2b_<作品ID>.mp4`
-3. `2b_<作品ID>.url.txt`
-4. `2b_<作品ID>.raw.json`
+3. `2b_<作品ID>_images/`
+4. `2b_<作品ID>_images.json`
+5. `2b_<作品ID>.url.txt`
+6. `2b_<作品ID>.raw.json`
 
 抽帧查看视频内容时，优先运行：
 
@@ -296,7 +303,9 @@ python3 scripts/extract_video_frames.py outputs/douyin_creator_assets/<timestamp
 1. `video_frame_grids.csv`
 2. `2b_<作品ID>_grid.jpg`
 
-生成视频理解交接包时，优先运行：
+图片/图文作品不需要抽帧，后续 handoff 必须直接带上图片文件路径。没有 mp4 时，不要把它判成下载失败；先检查是否是图片/图文作品。
+
+生成媒体理解交接包时，优先运行：
 
 [`scripts/build_video_understanding_handoff.py`](scripts/build_video_understanding_handoff.py)
 
@@ -311,13 +320,13 @@ python3 scripts/build_video_understanding_handoff.py outputs/douyin_creator_asse
 1. `video_understanding_handoff.jsonl`
 2. `video_understanding_handoff.md`
 
-这一步不调用任何固定供应商，只生成标准作业单。把 `video_understanding_handoff.jsonl` 交给 WorkBuddy 或其他能看视频/图片/字幕的 Agent，让它逐条按 `output_schema` 回填 JSON。建议回填文件名：
+这一步不调用任何固定供应商，只生成标准作业单。把 `video_understanding_handoff.jsonl` 交给 WorkBuddy 或其他能看视频/图片/字幕的 Agent，让它逐条按 `output_schema` 回填 JSON。对于 `media_type=image` 的样本，Agent 必须查看图片组，不要等待 mp4。建议回填文件名：
 
 ```text
 video_understanding_results.jsonl
 ```
 
-外部 Agent 回填后，渲染 2B 视频内容细看：
+外部 Agent 回填后，渲染 2B 媒体内容细看：
 
 [`scripts/render_video_deep_dive.py`](scripts/render_video_deep_dive.py)
 
@@ -367,22 +376,22 @@ python3 scripts/render_nutrition_transfer.py outputs/douyin_creator_assets/<time
 - 有参考价值具体参考什么，是候选清单、选购标准、操作步骤、购买入口还是共同决策理由。
 - 画面多是否真的回答了家长问题；如果只是生活记录，要写清为什么难以带来评论、收藏或分享。
 
-2B 视频拆解必须把技法和互动动作连起来：
+2B 媒体拆解必须把技法和互动动作连起来：
 
 | 互动锚点 | 必须解释 |
 |---|---|
-| 点赞 | 视频靠什么获得认可、共鸣、真实感或价值认同 |
-| 评论 | 视频靠什么引发提问、争议、经验交换、求链接或求型号 |
-| 收藏 | 视频靠什么形成复看价值、清单价值、步骤价值或购买前参考价值 |
-| 分享 | 视频靠什么值得转给家人、朋友、同类家长或共同决策人 |
+| 点赞 | 内容靠什么获得认可、共鸣、真实感或价值认同 |
+| 评论 | 内容靠什么引发提问、争议、经验交换、求链接或求型号 |
+| 收藏 | 内容靠什么形成复看价值、清单价值、步骤价值或购买前参考价值 |
+| 分享 | 内容靠什么值得转给家人、朋友、同类家长或共同决策人 |
 
-2C 不是单条视频拆解，不要塞进 2B 明细里。2C 只做集中判断：
+2C 不是单条媒体拆解，不要塞进 2B 明细里。2C 只做集中判断：
 
 ```text
 已验证优质内容结构 -> 起量机制 -> 对应的家长问题 -> 营养品可转接议题 -> 必须保留的表达方式 -> 风险 -> 评论验证点
 ```
 
-2C 只能从 2A 的主题/互动粗筛和 2B 的真实视频细看推导。不能从“账号有儿童内容”直接跳到“适合营养品”，也不能默认写“某个具体产品怎么接”。
+2C 只能从 2A 的主题/互动粗筛和 2B 的真实媒体细看推导。不能从“账号有儿童内容”直接跳到“适合营养品”，也不能默认写“某个具体产品怎么接”。
 
 第二项不直接判断一条内容是不是广告、合作、带货或收取推广费用，只判断商品内容信号。具体商品推荐、商品种草、使用体验推荐属于强商品信号，不要求必须看到小黄车、店铺链接或合作声明。标题里 `#` 后面的话题必须参与商品仲裁；如果出现品牌词、商品词、品类词、活动词，记录为商品信号证据。公开接口里的挂车/商品锚点字段也要检查；如果返回有效字段，作为强商品信号证据。
 
@@ -435,19 +444,19 @@ python3 scripts/render_nutrition_transfer.py outputs/douyin_creator_assets/<time
 2A 输出：
 
 1. `content_asset_posts.csv`：内容资产粗筛明细表。
-2. `content_asset_analysis.md`：账号内容资产粗筛报告，开头必须写明本轮未看真实视频，只做标题/话题/公开字段粗筛。
+2. `content_asset_analysis.md`：账号内容资产粗筛报告，开头必须写明本轮未看真实媒体内容，只做标题/话题/公开字段粗筛。
 3. 如果存在 `cart_posts.csv` 且有挂车短视频，额外输出 `cart_content_asset_posts.csv` 和 `cart_content_asset_analysis.md`；分析逻辑和主页内容粗筛一致，但样本池只看挂车短视频，不和主页普通短视频混算。
 
 2B 输出：
 
-1. `video_sample_candidates.csv`：2B 视频细看候选清单，按点赞、评论、收藏、分享高低位和品类连接低互动样本合并去重。
-2. `video_sample_candidates.md`：2B 视频细看候选说明，用人话解释为什么这些视频要下载/细看。
-3. `downloaded_videos.csv`：候选视频下载结果。
+1. `video_sample_candidates.csv`：2B 媒体细看候选清单，按点赞、评论、收藏、分享高低位和品类连接低互动样本合并去重。
+2. `video_sample_candidates.md`：2B 媒体细看候选说明，用人话解释为什么这些作品要下载/细看。
+3. `downloaded_videos.csv`：候选媒体下载结果，需区分 `media_type=video/image`。
 4. `video_frame_grids.csv`：候选视频抽帧结果。
-5. `video_understanding_handoff.jsonl` / `video_understanding_handoff.md`：交给 WorkBuddy 或其他视频理解 Agent 的标准作业单。
+5. `video_understanding_handoff.jsonl` / `video_understanding_handoff.md`：交给 WorkBuddy 或其他媒体理解 Agent 的标准作业单。
 6. `video_understanding_results.jsonl`：外部 Agent 回填结果；本 Skill 不绑定具体供应商。
-7. `video_content_deep_dive.csv`：视频内容细看明细表，输出 S层、前三秒、中段、口播、画面、商品出现方式、说服方式、真实感和四项互动归因。
-8. `video_content_deep_dive.md`：视频内容细看报告，必须基于真实视频内容输出 S层命中人群、四项互动高低位抽样依据、前三秒技法、不划走理由、前三秒文案类型、三秒停留技巧、中段停留机制、口播、画面、商品出现方式、说服方式、真实感和四项互动归因判断。
+7. `video_content_deep_dive.csv`：媒体内容细看明细表，输出 S层、视频前三秒或图文首图/图片顺序、中段/后续图片承接、口播/字幕/标题、画面、商品出现方式、说服方式、真实感和四项互动归因。
+8. `video_content_deep_dive.md`：媒体内容细看报告，必须基于真实媒体内容输出 S层命中人群、四项互动高低位抽样依据、视频前三秒或图文首图留人方式、不划走/继续看理由、文案入口、停留技巧、后续承接、口播/字幕/标题、画面、商品出现方式、说服方式、真实感和四项互动归因判断。
 
 2C 输出：
 
@@ -471,13 +480,15 @@ python3 scripts/render_nutrition_transfer.py outputs/douyin_creator_assets/<time
 13. 标题 `#` 话题必须参与商品仲裁，品牌词、商品词、品类词、活动词都要记录到商品信号证据。
 14. 挂车只能按公开接口返回字段判断；必须检查 `aweme_anchor_info`、`anchor_info`、`anchors`、`component_info_v2`、`commerce_config_data` 以及商品/店铺字段；其中 `aweme_anchor_info.title_tag=购物` 或 `aweme_anchor_info.elastic_title=视频同款` 必须判为挂车；未发现挂车字段不等于确定没有挂车。
 15. 第二项 MD 不要默认写“某个具体产品怎么接”；2C 只能判断已验证的优质内容结构如何转成儿童营养品议题，不判断具体产品承接、转化率或合作价值。
-16. 第二项必须区分 2A 粗筛、2B 视频内容细看和 2C 营养品转接预判；没有看真实视频时，不要进入 2C。
-17. 2B 必须先判断 S层命中人群，再看前三秒、口播、画面、商品出现方式、达人说服方式和内容真实感。
-18. S层命中人群不要写成“宝妈/家长/儿童家庭”这种静态身份；必须写清“这个人现在卡在哪一步”。
-19. S层判断必须结合互动数据校验：内容证据负责判断“打的是什么人群”，点赞、评论、收藏、分享负责判断“该人群在这个账号粉丝里有没有响应”。
-20. 如果某条内容上打母婴、儿童、营养、健康或育儿焦虑人群，但点赞、评论、收藏、分享整体低于样本中位，不要硬说方向成立；要输出“内容方向相关，但该博主当前粉丝里对应人群响应不强/人群可能不多”。
-21. 2B 禁止只按总互动抽样或只写总互动结论；必须分别找四项互动的高位和低位样本，并分别解释点赞、评论、收藏、分享为什么高或低。
-22. 2B 前三秒必须先判断为什么不划走，再判断前三秒文案类型和三秒停留技巧，最后判断中段有没有接住；不要把外部前三秒方法论写成本 Skill 的硬调用依赖。
-23. 2B 禁止把“真人出镜、实物展示、孩子画面、真实感强、信息密度高、功能点多、有参考价值、生活氛围好”当作最终判断；必须继续推导到“它打中了家长什么问题，以及为什么对应点赞/评论/收藏/分享高或低”。
-24. 2C 必须把已验证的优质内容机制拆出来，再判断能否转成营养品议题。固定链条为：优质内容样本 -> 起量机制 -> 对应的家长问题 -> 营养品可转接议题 -> 必须保留的表达方式 -> 风险 -> 评论验证点。禁止直接写“有儿童内容，所以可以接营养品”。
-25. 2C 的营养品转接预判只能从已被互动或内容细看验证过的机制推导：例如避坑、清单、买前问题、长期观察、孩子真实使用场景。不能从“账号有儿童内容”直接跳到“适合营养品”，也不能写成具体产品投放建议。
+16. 第二项必须区分 2A 粗筛、2B 媒体内容细看和 2C 营养品转接预判；没有看真实媒体内容时，不要进入 2C。
+17. 2B 必须先判断 S层命中人群，再看媒体留人方式、口播/字幕/标题、画面、商品出现方式、达人说服方式和内容真实感。
+18. `media_type=video` 时看前三秒、三秒停留技巧和后文是否接住；`media_type=image` 时不要硬编前三秒，改看首图/前两张图、图片顺序和标题如何让人继续看。
+19. S层命中人群不要写成“宝妈/家长/儿童家庭”这种静态身份；必须写清“这个人现在卡在哪一步”。
+20. S层判断必须结合互动数据校验：内容证据负责判断“打的是什么人群”，点赞、评论、收藏、分享负责判断“该人群在这个账号粉丝里有没有响应”。
+21. 如果某条内容上打母婴、儿童、营养、健康或育儿焦虑人群，但点赞、评论、收藏、分享整体低于样本中位，不要硬说方向成立；要输出“内容方向相关，但该博主当前粉丝里对应人群响应不强/人群可能不多”。
+22. 2B 禁止只按总互动抽样或只写总互动结论；必须分别找四项互动的高位和低位样本，并分别解释点赞、评论、收藏、分享为什么高或低。
+23. 视频作品的前三秒必须先判断为什么不划走，再判断前三秒文案类型和三秒停留技巧，最后判断中段有没有接住；不要把外部前三秒方法论写成本 Skill 的硬调用依赖。
+24. 图文作品必须判断首图/前两张图为什么让人继续看、图片顺序有没有形成信息递进，以及标题/话题有没有补足观看理由；不要把它写成“没有前三秒所以无法判断”。
+25. 2B 禁止把“真人出镜、实物展示、孩子画面、真实感强、信息密度高、功能点多、有参考价值、生活氛围好”当作最终判断；必须继续推导到“它打中了家长什么问题，以及为什么对应点赞/评论/收藏/分享高或低”。
+26. 2C 必须把已验证的优质内容机制拆出来，再判断能否转成营养品议题。固定链条为：优质内容样本 -> 起量机制 -> 对应的家长问题 -> 营养品可转接议题 -> 必须保留的表达方式 -> 风险 -> 评论验证点。禁止直接写“有儿童内容，所以可以接营养品”。
+27. 2C 的营养品转接预判只能从已被互动或内容细看验证过的机制推导：例如避坑、清单、买前问题、长期观察、孩子真实使用场景。不能从“账号有儿童内容”直接跳到“适合营养品”，也不能写成具体产品投放建议。

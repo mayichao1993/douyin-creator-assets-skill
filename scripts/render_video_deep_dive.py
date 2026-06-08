@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render 2B video deep-dive outputs from agent-neutral JSONL results."""
+"""Render 2B media deep-dive outputs from agent-neutral JSONL results."""
 
 from __future__ import annotations
 
@@ -14,7 +14,10 @@ COLUMNS = [
     "作品ID",
     "作品标题",
     "四项互动锚点",
+    "媒体类型",
     "视频文件",
+    "图片文件",
+    "图片清单文件",
     "抽帧图",
     "S层命中人群",
     "前三秒",
@@ -23,7 +26,7 @@ COLUMNS = [
     "三秒停留技巧",
     "后文是否接住前三秒",
     "中段停留机制",
-    "视频核心内容",
+    "媒体核心内容",
     "口播/字幕依据",
     "画面重点",
     "商品出现方式",
@@ -42,7 +45,7 @@ METRIC_COLUMNS = ["点赞数", "评论数", "收藏数", "分享数", "总互动
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Render video_content_deep_dive.csv/md from JSONL produced by WorkBuddy or another video agent."
+        description="Render video_content_deep_dive.csv/md from JSONL produced by WorkBuddy or another media agent."
     )
     parser.add_argument("run_dir", help="A outputs/douyin_creator_assets/<timestamp> directory.")
     parser.add_argument(
@@ -113,6 +116,8 @@ def id_from_path(path_text: str) -> str:
     stem = Path(path_text).stem
     if stem.endswith("_grid"):
         stem = stem[:-5]
+    if stem.endswith("_images"):
+        stem = stem[:-7]
     if stem.startswith("2b_"):
         return stem[3:]
     return stem
@@ -141,6 +146,13 @@ def normalize_path(run_dir: Path, path_text: str) -> str:
     return str(path)
 
 
+def existing_path_or_blank(run_dir: Path, path_text: str) -> str:
+    if not path_text:
+        return ""
+    normalized = normalize_path(run_dir, path_text)
+    return normalized if Path(normalized).exists() else ""
+
+
 def fallback(value: str) -> str:
     return value if value else "待补充"
 
@@ -159,18 +171,26 @@ def build_rows(run_dir: Path, results: list[dict[str, Any]]) -> list[dict[str, s
         download = downloads.get(aweme_id, {})
         grid = grids.get(aweme_id, {})
         video_path = text(result, "视频文件") or text(download, "视频文件") or str(run_dir / f"2b_{aweme_id}.mp4")
+        image_files = text(result, "图片文件") or text(download, "图片文件")
+        image_manifest = text(result, "图片清单文件") or text(download, "图片清单文件") or str(run_dir / f"2b_{aweme_id}_images.json")
         grid_path = text(result, "抽帧图") or text(grid, "抽帧图") or str(run_dir / f"2b_{aweme_id}_grid.jpg")
         row: dict[str, str] = {
             "作品ID": aweme_id,
             "作品标题": text(result, "作品标题", "title") or text(candidate, "作品标题"),
             "四项互动锚点": text(result, "四项互动锚点") or text(candidate, "抽样锚点"),
-            "视频文件": normalize_path(run_dir, video_path),
-            "抽帧图": normalize_path(run_dir, grid_path),
+            "媒体类型": text(result, "媒体类型") or text(download, "媒体类型"),
+            "视频文件": existing_path_or_blank(run_dir, video_path),
+            "图片文件": image_files,
+            "图片清单文件": existing_path_or_blank(run_dir, image_manifest),
+            "抽帧图": existing_path_or_blank(run_dir, grid_path),
         }
         for column in COLUMNS:
             if column in row:
                 continue
-            row[column] = fallback(text(result, column))
+            if column == "媒体核心内容":
+                row[column] = fallback(text(result, "媒体核心内容", "视频核心内容"))
+            else:
+                row[column] = fallback(text(result, column))
         rows.append(row)
     return rows
 
@@ -200,33 +220,41 @@ def metric_table(run_dir: Path, rows: list[dict[str, str]]) -> list[str]:
 
 def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
     lines = [
-        "# 视频内容细看报告（2B）",
+        "# 媒体内容细看报告（2B）",
         "",
         f"- 来源目录：`{run_dir}`",
         f"- 样本数：{len(rows)}",
-        "- 查看方式：由外部视频理解 Agent 查看 mp4/抽帧图/字幕后回填 JSON，本脚本只负责渲染成 2B 报告。",
+        "- 查看方式：由外部媒体理解 Agent 查看 mp4/抽帧图/图片/字幕后回填 JSON，本脚本只负责渲染成 2B 报告。",
         "",
         "## 1. 抽样锚点",
         "",
     ]
     lines.extend(metric_table(run_dir, rows))
-    lines.extend(["", "## 2. 单条视频细看", ""])
+    lines.extend(["", "## 2. 单条媒体细看", ""])
     for row in rows:
+        if row["媒体类型"] == "image":
+            media_line = f"媒体素材：image；图片：`{row['图片文件']}`"
+        elif row["媒体类型"] == "video":
+            media_line = f"媒体素材：video；视频：`{row['视频文件']}`；抽帧图：`{row['抽帧图']}`"
+        else:
+            media_line = f"媒体素材：{row['媒体类型']}；视频：`{row['视频文件']}`；图片：`{row['图片文件']}`"
         lines.extend(
             [
                 f"### {row['作品ID']}：{row['作品标题']}",
                 "",
                 f"打的是：{row['S层命中人群']}",
                 "",
-                f"前三秒：{row['前三秒']}",
+                f"留人入口：{row['前三秒']}",
                 "",
                 f"不划走理由：{row['不划走理由']}",
                 "",
-                f"前三秒文案类型：{row['前三秒文案类型']}；三秒停留技巧：{row['三秒停留技巧']}；后文承接：{row['后文是否接住前三秒']}",
+                f"入口类型：{row['前三秒文案类型']}；停留技巧：{row['三秒停留技巧']}；后续承接：{row['后文是否接住前三秒']}",
                 "",
                 f"中段停留机制：{row['中段停留机制']}",
                 "",
-                f"视频核心内容：{row['视频核心内容']}",
+                f"媒体核心内容：{row['媒体核心内容']}",
+                "",
+                media_line,
                 "",
                 f"口播/字幕依据：{row['口播/字幕依据']}",
                 "",
