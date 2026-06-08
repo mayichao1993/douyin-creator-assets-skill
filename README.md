@@ -68,8 +68,8 @@ python3 path/to/douyin-creator-assets/scripts/render_basic_profile.py outputs/do
 补渲染会输出：
 
 ```text
-basic_profile_analysis.md
-cart_profile_analysis.md（有挂车短视频样本时）
+01_公开互动基础盘.md
+01_挂车作品公开互动基础盘.md（有挂车短视频样本时）
 ```
 
 生成 2B 媒体细看候选清单：
@@ -81,8 +81,8 @@ python3 path/to/douyin-creator-assets/scripts/select_video_samples.py outputs/do
 该脚本会输出：
 
 ```text
-video_sample_candidates.csv
-video_sample_candidates.md
+02B_媒体细看抽样清单数据.csv
+02B_媒体细看抽样清单.md
 ```
 
 下载 2B 候选媒体：
@@ -94,7 +94,7 @@ python3 path/to/douyin-creator-assets/scripts/download_sample_videos.py outputs/
 下载后会输出：
 
 ```text
-downloaded_videos.csv
+02B_候选媒体下载结果.csv
 2b_<作品ID>.mp4（视频作品）
 2b_<作品ID>_images/（图片/图文作品）
 2b_<作品ID>_images.json（图片/图文作品）
@@ -111,7 +111,7 @@ python3 path/to/douyin-creator-assets/scripts/extract_video_frames.py outputs/do
 抽帧后会输出：
 
 ```text
-video_frame_grids.csv
+02B_视频抽帧结果.csv
 2b_<作品ID>_grid.jpg
 ```
 
@@ -128,8 +128,8 @@ python3 path/to/douyin-creator-assets/scripts/build_video_understanding_handoff.
 交接包会输出：
 
 ```text
-video_understanding_handoff.jsonl
-video_understanding_handoff.md
+02B_媒体理解交接包.jsonl
+02B_媒体理解交接包.md
 ```
 
 外部 Agent 回填后，建议保存为：
@@ -152,31 +152,35 @@ python3 path/to/douyin-creator-assets/scripts/render_nutrition_transfer.py outpu
 
 ## 产物
 
+正式产物优先看中文文件名；脚本会同时保留英文兼容副本，供旧流程或其他 Agent 读取。
+
 第一项基础盘：
 
-- `creator_posts.csv`
-- `cart_posts.csv`
-- `interaction_summary.csv`
-- `cart_interaction_summary.csv`
-- `basic_profile_analysis.md`
-- `cart_profile_analysis.md`
+- `01_主页普通作品明细.csv`
+- `01_挂车作品明细.csv`
+- `01_公开互动基础盘数据.csv`
+- `01_挂车作品公开互动基础盘数据.csv`
+- `01_公开互动基础盘.md`
+- `01_挂车作品公开互动基础盘.md`
 - `raw.json`
 
 第二项内容资产盘：
 
-- `content_asset_posts.csv`
-- `content_asset_analysis.md`
-- `video_sample_candidates.csv`
-- `video_sample_candidates.md`
-- `downloaded_videos.csv`
-- `video_frame_grids.csv`
-- `video_understanding_handoff.jsonl`
-- `video_understanding_handoff.md`
+- `02A_内容资产粗筛明细.csv`
+- `02A_内容资产粗筛.md`
+- `02A_挂车作品内容资产粗筛明细.csv`（有挂车短视频样本时）
+- `02A_挂车作品内容资产粗筛.md`（有挂车短视频样本时）
+- `02B_媒体细看抽样清单数据.csv`
+- `02B_媒体细看抽样清单.md`
+- `02B_候选媒体下载结果.csv`
+- `02B_视频抽帧结果.csv`
+- `02B_媒体理解交接包.jsonl`
+- `02B_媒体理解交接包.md`
 - `video_understanding_results.jsonl`（外部 Agent 回填）
-- `video_content_deep_dive.csv`
-- `video_content_deep_dive.md`
-- `nutrition_transfer_prediction.csv`
-- `nutrition_transfer_prediction.md`
+- `02B_媒体内容细看明细.csv`
+- `02B_媒体内容细看.md`
+- `02C_营养品议题转接预判明细.csv`
+- `02C_营养品议题转接预判.md`
 
 ## 执行边界
 

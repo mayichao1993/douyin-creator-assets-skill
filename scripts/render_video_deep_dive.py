@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from output_names import existing_output_path, mirror_legacy, output_path
+
 
 COLUMNS = [
     "作品ID",
@@ -158,9 +160,9 @@ def fallback(value: str) -> str:
 
 
 def build_rows(run_dir: Path, results: list[dict[str, Any]]) -> list[dict[str, str]]:
-    candidates = index_by_id(read_csv_if_exists(run_dir / "video_sample_candidates.csv"))
-    downloads = index_by_id(read_csv_if_exists(run_dir / "downloaded_videos.csv"))
-    grids = index_grids(read_csv_if_exists(run_dir / "video_frame_grids.csv"))
+    candidates = index_by_id(read_csv_if_exists(existing_output_path(run_dir, "video_sample_candidates.csv")))
+    downloads = index_by_id(read_csv_if_exists(existing_output_path(run_dir, "downloaded_videos.csv")))
+    grids = index_grids(read_csv_if_exists(existing_output_path(run_dir, "video_frame_grids.csv")))
     rows: list[dict[str, str]] = []
 
     for result in results:
@@ -203,7 +205,7 @@ def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
 
 
 def metric_table(run_dir: Path, rows: list[dict[str, str]]) -> list[str]:
-    candidate_map = index_by_id(read_csv_if_exists(run_dir / "video_sample_candidates.csv"))
+    candidate_map = index_by_id(read_csv_if_exists(existing_output_path(run_dir, "video_sample_candidates.csv")))
     lines = [
         "| 作品ID | 抽样锚点 | 点赞 | 评论 | 收藏 | 分享 |",
         "|---|---|---:|---:|---:|---:|",
@@ -279,7 +281,7 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
         [
             "## 3. 文件",
             "",
-            f"- 2B 明细表：`{run_dir / 'video_content_deep_dive.csv'}`",
+            f"- 2B 明细表：`{output_path(run_dir, 'video_content_deep_dive.csv')}`",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -293,10 +295,12 @@ def main() -> int:
         results_path = run_dir / results_path
     results = read_results(results_path)
     rows = build_rows(run_dir, results)
-    csv_path = run_dir / "video_content_deep_dive.csv"
-    md_path = run_dir / "video_content_deep_dive.md"
+    csv_path = output_path(run_dir, "video_content_deep_dive.csv")
+    md_path = output_path(run_dir, "video_content_deep_dive.md")
     write_csv(csv_path, rows)
+    mirror_legacy(csv_path, run_dir, "video_content_deep_dive.csv")
     md_path.write_text(build_md(run_dir, rows), encoding="utf-8")
+    mirror_legacy(md_path, run_dir, "video_content_deep_dive.md")
     print(f"wrote {csv_path}")
     print(f"wrote {md_path}")
     return 0

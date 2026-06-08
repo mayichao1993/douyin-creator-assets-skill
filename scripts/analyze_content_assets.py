@@ -11,6 +11,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+from output_names import existing_output_path, mirror_legacy, output_path
+
 
 POST_COLUMNS = [
     "作品ID",
@@ -533,22 +535,24 @@ def write_content_outputs(
     source_label: str,
 ) -> tuple[Path, Path, int]:
     output_rows, median_total = analyze_rows(rows, items_by_id)
-    out_csv = run_dir / csv_name
+    out_csv = output_path(run_dir, csv_name)
     with out_csv.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=POST_COLUMNS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(output_rows)
+    mirror_legacy(out_csv, run_dir, csv_name)
 
-    out_md = run_dir / md_name
+    out_md = output_path(run_dir, md_name)
     out_md.write_text(build_analysis(output_rows, run_dir, median_total, source_label), encoding="utf-8")
+    mirror_legacy(out_md, run_dir, md_name)
     return out_csv, out_md, len(output_rows)
 
 
 def main() -> int:
     args = parse_args()
     run_dir = Path(args.run_dir)
-    posts_path = run_dir / "creator_posts.csv"
-    cart_posts_path = run_dir / "cart_posts.csv"
+    posts_path = existing_output_path(run_dir, "creator_posts.csv")
+    cart_posts_path = existing_output_path(run_dir, "cart_posts.csv")
     raw_path = run_dir / "raw.json"
     rows = read_csv(posts_path)
     cart_rows_for_analysis = read_csv(cart_posts_path) if cart_posts_path.exists() else []

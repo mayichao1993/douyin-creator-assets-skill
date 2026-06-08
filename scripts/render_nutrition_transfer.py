@@ -9,6 +9,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+from output_names import existing_output_path, mirror_legacy, output_path
+
 
 COLUMNS = [
     "已验证优质内容结构",
@@ -173,8 +175,8 @@ def transfer_for_structure(structure: str) -> tuple[str, str, str, str, str]:
 
 
 def build_rows(run_dir: Path, max_items: int) -> list[dict[str, str]]:
-    deep_rows = read_csv_if_exists(run_dir / "video_content_deep_dive.csv")
-    candidate_rows = read_csv_if_exists(run_dir / "video_sample_candidates.csv")
+    deep_rows = read_csv_if_exists(existing_output_path(run_dir, "video_content_deep_dive.csv"))
+    candidate_rows = read_csv_if_exists(existing_output_path(run_dir, "video_sample_candidates.csv"))
     candidate_map = index_by_id(candidate_rows)
     metric_medians = medians(candidate_rows)
     rows: list[dict[str, str]] = []
@@ -288,10 +290,12 @@ def main() -> int:
     args = parse_args()
     run_dir = Path(args.run_dir)
     rows = build_rows(run_dir, args.max_items)
-    csv_path = run_dir / "nutrition_transfer_prediction.csv"
-    md_path = run_dir / "nutrition_transfer_prediction.md"
+    csv_path = output_path(run_dir, "nutrition_transfer_prediction.csv")
+    md_path = output_path(run_dir, "nutrition_transfer_prediction.md")
     write_csv(csv_path, rows)
+    mirror_legacy(csv_path, run_dir, "nutrition_transfer_prediction.csv")
     md_path.write_text(build_md(run_dir, rows), encoding="utf-8")
+    mirror_legacy(md_path, run_dir, "nutrition_transfer_prediction.md")
     print(f"wrote {csv_path}")
     print(f"wrote {md_path}")
     return 0

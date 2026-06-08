@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from collect_creator_assets import MOBILE_USER_AGENT, CollectError, item_from_mobile_share
+from output_names import existing_output_path, mirror_legacy, output_path
 
 
 OUTPUT_COLUMNS = [
@@ -275,7 +276,7 @@ def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
 def main() -> int:
     args = parse_args()
     run_dir = Path(args.run_dir)
-    source_path = run_dir / args.source
+    source_path = existing_output_path(run_dir, args.source)
     rows = read_csv(source_path)
 
     result_rows: list[dict[str, str]] = []
@@ -425,9 +426,10 @@ def main() -> int:
             }
         )
 
-    output_path = run_dir / "downloaded_videos.csv"
-    write_csv(output_path, result_rows)
-    print(f"wrote {output_path}")
+    out_path = output_path(run_dir, "downloaded_videos.csv")
+    write_csv(out_path, result_rows)
+    mirror_legacy(out_path, run_dir, "downloaded_videos.csv")
+    print(f"wrote {out_path}")
     return 0
 
 

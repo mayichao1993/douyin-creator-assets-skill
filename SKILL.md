@@ -92,7 +92,7 @@ python3 scripts/collect_creator_assets.py 'https://www.douyin.com/user/xxx' --co
 
 只分析已有 CSV / JSON 时，不要重新抓取，直接读取用户给的文件。
 
-如果第一项基础盘已有 `raw.json` / `interaction_summary.csv`，但缺少 `basic_profile_analysis.md`，不要跳过第一项文档，优先运行补渲染脚本：
+如果第一项基础盘已有 `raw.json` / `01_公开互动基础盘数据.csv`，但缺少 `01_公开互动基础盘.md`，不要跳过第一项文档，优先运行补渲染脚本：
 
 [`scripts/render_basic_profile.py`](scripts/render_basic_profile.py)
 
@@ -102,10 +102,10 @@ python3 scripts/collect_creator_assets.py 'https://www.douyin.com/user/xxx' --co
 python3 scripts/render_basic_profile.py outputs/douyin_creator_assets/<timestamp>
 ```
 
-该脚本读取 `raw.json` 或 `interaction_summary.csv`，输出：
+该脚本读取 `raw.json` 或 `01_公开互动基础盘数据.csv`，输出：
 
-1. `basic_profile_analysis.md`
-2. `cart_profile_analysis.md`（存在挂车短视频汇总时）
+1. `01_公开互动基础盘.md`
+2. `01_挂车作品公开互动基础盘.md`（存在挂车短视频汇总时）
 
 ### 1.1 挂车识别逻辑
 
@@ -223,13 +223,15 @@ product、shop、cart、commodity、ecom、commerce、anchor、商品、购物�
 
 每次成功后输出：
 
-1. `creator_posts.csv`：主页普通作品明细表，只包含进入基础盘的非置顶、非挂车普通作品
-2. `cart_posts.csv`：主页前20条里发现的挂车短视频明细表，单独分析，不混入主页普通基础盘
-3. `interaction_summary.csv`：主页普通作品第一项指标汇总表
-4. `cart_interaction_summary.csv`：挂车短视频第一项指标汇总表，使用同一套点赞、评论、收藏、分享、发布时间、波动和结构逻辑
+1. `01_主页普通作品明细.csv`：主页普通作品明细表，只包含进入基础盘的非置顶、非挂车普通作品
+2. `01_挂车作品明细.csv`：主页前20条里发现的挂车短视频明细表，单独分析，不混入主页普通基础盘
+3. `01_公开互动基础盘数据.csv`：主页普通作品第一项指标汇总表
+4. `01_挂车作品公开互动基础盘数据.csv`：挂车短视频第一项指标汇总表，使用同一套点赞、评论、收藏、分享、发布时间、波动和结构逻辑
 5. `raw.json`：原始抓取数据
-6. `basic_profile_analysis.md`：主页普通作品公开互动基础盘判断，开头必须先输出初步账号分析，再列数据依据；不要单独输出空泛边界段落
-7. `cart_profile_analysis.md`：挂车短视频公开互动基础盘判断，分析逻辑和主页普通作品一致，但样本池独立
+6. `01_公开互动基础盘.md`：主页普通作品公开互动基础盘判断，开头必须先输出初步账号分析，再列数据依据；不要单独输出空泛边界段落
+7. `01_挂车作品公开互动基础盘.md`：挂车短视频公开互动基础盘判断，分析逻辑和主页普通作品一致，但样本池独立
+
+脚本会同时保留旧英文文件名作为兼容副本；正式阅读和交付优先看中文文件名。
 
 ### 5. 生成第二项内容资产盘
 
@@ -259,8 +261,8 @@ python3 scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp
 
 该脚本输出：
 
-1. `video_sample_candidates.csv`
-2. `video_sample_candidates.md`
+1. `02B_媒体细看抽样清单数据.csv`
+2. `02B_媒体细看抽样清单.md`
 
 这两个文件只负责告诉执行者“哪些作品应该进入 2B 细看”，不替代真实媒体内容判断。
 
@@ -274,14 +276,14 @@ python3 scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp
 python3 scripts/download_sample_videos.py outputs/douyin_creator_assets/<timestamp>
 ```
 
-该脚本读取 `video_sample_candidates.csv`，下载建议进入 2B 的媒体素材。不能默认所有作品都是视频；抖音也有图片/图文作品。脚本必须按媒体类型处理：
+该脚本读取 `02B_媒体细看抽样清单数据.csv`，下载建议进入 2B 的媒体素材。不能默认所有作品都是视频；抖音也有图片/图文作品。脚本必须按媒体类型处理：
 
 - 视频作品：下载 `2b_<作品ID>.mp4`
 - 图片/图文作品：下载 `2b_<作品ID>_images/` 图片组，并生成 `2b_<作品ID>_images.json`
 
 输出：
 
-1. `downloaded_videos.csv`
+1. `02B_候选媒体下载结果.csv`
 2. `2b_<作品ID>.mp4`
 3. `2b_<作品ID>_images/`
 4. `2b_<作品ID>_images.json`
@@ -300,7 +302,7 @@ python3 scripts/extract_video_frames.py outputs/douyin_creator_assets/<timestamp
 
 该脚本读取 `2b_*.mp4`，输出：
 
-1. `video_frame_grids.csv`
+1. `02B_视频抽帧结果.csv`
 2. `2b_<作品ID>_grid.jpg`
 
 图片/图文作品不需要抽帧，后续 handoff 必须直接带上图片文件路径。没有 mp4 时，不要把它判成下载失败；先检查是否是图片/图文作品。
@@ -315,12 +317,12 @@ python3 scripts/extract_video_frames.py outputs/douyin_creator_assets/<timestamp
 python3 scripts/build_video_understanding_handoff.py outputs/douyin_creator_assets/<timestamp>
 ```
 
-该脚本读取 `video_sample_candidates.csv`、`downloaded_videos.csv`、`video_frame_grids.csv` 和可选字幕/转写文件，输出：
+该脚本读取 `02B_媒体细看抽样清单数据.csv`、`02B_候选媒体下载结果.csv`、`02B_视频抽帧结果.csv` 和可选字幕/转写文件，输出：
 
-1. `video_understanding_handoff.jsonl`
-2. `video_understanding_handoff.md`
+1. `02B_媒体理解交接包.jsonl`
+2. `02B_媒体理解交接包.md`
 
-这一步不调用任何固定供应商，只生成标准作业单。把 `video_understanding_handoff.jsonl` 交给 WorkBuddy 或其他能看视频/图片/字幕的 Agent，让它逐条按 `output_schema` 回填 JSON。对于 `media_type=image` 的样本，Agent 必须查看图片组，不要等待 mp4。建议回填文件名：
+这一步不调用任何固定供应商，只生成标准作业单。把 `02B_媒体理解交接包.jsonl` 交给 WorkBuddy 或其他能看视频/图片/字幕的 Agent，让它逐条按 `output_schema` 回填 JSON。对于 `media_type=image` 的样本，Agent 必须查看图片组，不要等待 mp4。建议回填文件名：
 
 ```text
 video_understanding_results.jsonl
@@ -338,8 +340,8 @@ python3 scripts/render_video_deep_dive.py outputs/douyin_creator_assets/<timesta
 
 该脚本读取 `video_understanding_results.jsonl`，输出：
 
-1. `video_content_deep_dive.csv`
-2. `video_content_deep_dive.md`
+1. `02B_媒体内容细看明细.csv`
+2. `02B_媒体内容细看.md`
 
 2B 完成后，生成 2C 营养品议题转接预判：
 
@@ -351,10 +353,10 @@ python3 scripts/render_video_deep_dive.py outputs/douyin_creator_assets/<timesta
 python3 scripts/render_nutrition_transfer.py outputs/douyin_creator_assets/<timestamp>
 ```
 
-该脚本读取 `content_asset_posts.csv`、`video_sample_candidates.csv` 和 `video_content_deep_dive.csv`，输出：
+该脚本读取 `02A_内容资产粗筛明细.csv`、`02B_媒体细看抽样清单数据.csv` 和 `02B_媒体内容细看明细.csv`，输出：
 
-1. `nutrition_transfer_prediction.csv`
-2. `nutrition_transfer_prediction.md`
+1. `02C_营养品议题转接预判明细.csv`
+2. `02C_营养品议题转接预判.md`
 
 2B 前三秒判断只保留为本 Skill 的执行维度，不写成对外部方法论的硬调用依赖。不要只写“真人出镜/实物展示/口播开头”，必须判断：
 
@@ -443,25 +445,25 @@ python3 scripts/render_nutrition_transfer.py outputs/douyin_creator_assets/<time
 
 2A 输出：
 
-1. `content_asset_posts.csv`：内容资产粗筛明细表。
-2. `content_asset_analysis.md`：账号内容资产粗筛报告，开头必须写明本轮未看真实媒体内容，只做标题/话题/公开字段粗筛。
-3. 如果存在 `cart_posts.csv` 且有挂车短视频，额外输出 `cart_content_asset_posts.csv` 和 `cart_content_asset_analysis.md`；分析逻辑和主页内容粗筛一致，但样本池只看挂车短视频，不和主页普通短视频混算。
+1. `02A_内容资产粗筛明细.csv`：内容资产粗筛明细表。
+2. `02A_内容资产粗筛.md`：账号内容资产粗筛报告，开头必须写明本轮未看真实媒体内容，只做标题/话题/公开字段粗筛。
+3. 如果存在 `01_挂车作品明细.csv` 且有挂车短视频，额外输出 `02A_挂车作品内容资产粗筛明细.csv` 和 `02A_挂车作品内容资产粗筛.md`；分析逻辑和主页内容粗筛一致，但样本池只看挂车短视频，不和主页普通短视频混算。
 
 2B 输出：
 
-1. `video_sample_candidates.csv`：2B 媒体细看候选清单，按点赞、评论、收藏、分享高低位和品类连接低互动样本合并去重。
-2. `video_sample_candidates.md`：2B 媒体细看候选说明，用人话解释为什么这些作品要下载/细看。
-3. `downloaded_videos.csv`：候选媒体下载结果，需区分 `media_type=video/image`。
-4. `video_frame_grids.csv`：候选视频抽帧结果。
-5. `video_understanding_handoff.jsonl` / `video_understanding_handoff.md`：交给 WorkBuddy 或其他媒体理解 Agent 的标准作业单。
+1. `02B_媒体细看抽样清单数据.csv`：2B 媒体细看候选清单，按点赞、评论、收藏、分享高低位和品类连接低互动样本合并去重。
+2. `02B_媒体细看抽样清单.md`：2B 媒体细看候选说明，用人话解释为什么这些作品要下载/细看。
+3. `02B_候选媒体下载结果.csv`：候选媒体下载结果，需区分 `media_type=video/image`。
+4. `02B_视频抽帧结果.csv`：候选视频抽帧结果。
+5. `02B_媒体理解交接包.jsonl` / `02B_媒体理解交接包.md`：交给 WorkBuddy 或其他媒体理解 Agent 的标准作业单。
 6. `video_understanding_results.jsonl`：外部 Agent 回填结果；本 Skill 不绑定具体供应商。
-7. `video_content_deep_dive.csv`：媒体内容细看明细表，输出 S层、视频前三秒或图文首图/图片顺序、中段/后续图片承接、口播/字幕/标题、画面、商品出现方式、说服方式、真实感和四项互动归因。
-8. `video_content_deep_dive.md`：媒体内容细看报告，必须基于真实媒体内容输出 S层命中人群、四项互动高低位抽样依据、视频前三秒或图文首图留人方式、不划走/继续看理由、文案入口、停留技巧、后续承接、口播/字幕/标题、画面、商品出现方式、说服方式、真实感和四项互动归因判断。
+7. `02B_媒体内容细看明细.csv`：媒体内容细看明细表，输出 S层、视频前三秒或图文首图/图片顺序、中段/后续图片承接、口播/字幕/标题、画面、商品出现方式、说服方式、真实感和四项互动归因。
+8. `02B_媒体内容细看.md`：媒体内容细看报告，必须基于真实媒体内容输出 S层命中人群、四项互动高低位抽样依据、视频前三秒或图文首图留人方式、不划走/继续看理由、文案入口、停留技巧、后续承接、口播/字幕/标题、画面、商品出现方式、说服方式、真实感和四项互动归因判断。
 
 2C 输出：
 
-1. `nutrition_transfer_prediction.csv`：优质内容到营养品的转接预判表，字段至少包括：`已验证优质内容结构`、`来源样本`、`起量机制`、`对应的家长问题`、`营养品可转接议题`、`必须保留的表达方式`、`转接风险`、`评论验证点`。
-2. `nutrition_transfer_prediction.md`：优质内容到营养品的转接预判报告，必须写成 2A + 2B 之后的收束判断，不逐条复述视频。
+1. `02C_营养品议题转接预判明细.csv`：优质内容到营养品的转接预判表，字段至少包括：`已验证优质内容结构`、`来源样本`、`起量机制`、`对应的家长问题`、`营养品可转接议题`、`必须保留的表达方式`、`转接风险`、`评论验证点`。
+2. `02C_营养品议题转接预判.md`：优质内容到营养品的转接预判报告，必须写成 2A + 2B 之后的收束判断，不逐条复述视频。
 
 ## 关键约束
 

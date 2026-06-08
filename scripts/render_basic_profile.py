@@ -15,6 +15,7 @@ from collect_creator_assets import (
     build_analysis,
     humanize_cell,
 )
+from output_names import existing_output_path, mirror_legacy, output_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -70,7 +71,7 @@ def ensure_summary(run_dir: Path, raw: dict[str, Any]) -> dict[str, Any]:
     summary = raw.get("summary")
     if isinstance(summary, dict):
         return summary
-    csv_summary = read_summary_csv(run_dir / "interaction_summary.csv")
+    csv_summary = read_summary_csv(existing_output_path(run_dir, "interaction_summary.csv"))
     if csv_summary:
         return csv_summary
     raise FileNotFoundError("Need raw.json with summary or interaction_summary.csv.")
@@ -80,7 +81,7 @@ def ensure_cart_summary(run_dir: Path, raw: dict[str, Any]) -> dict[str, Any] | 
     cart_summary = raw.get("cart_summary")
     if isinstance(cart_summary, dict):
         return cart_summary
-    return read_summary_csv(run_dir / "cart_interaction_summary.csv")
+    return read_summary_csv(existing_output_path(run_dir, "cart_interaction_summary.csv"))
 
 
 def main() -> int:
@@ -91,13 +92,15 @@ def main() -> int:
     summary = ensure_summary(run_dir, raw)
     cart_summary = ensure_cart_summary(run_dir, raw)
 
-    basic_path = run_dir / "basic_profile_analysis.md"
+    basic_path = output_path(run_dir, "basic_profile_analysis.md")
     basic_path.write_text(build_analysis([], target, summary), encoding="utf-8")
+    mirror_legacy(basic_path, run_dir, "basic_profile_analysis.md")
 
     paths = {"basic_profile_analysis": str(basic_path)}
     if cart_summary:
-        cart_path = run_dir / "cart_profile_analysis.md"
+        cart_path = output_path(run_dir, "cart_profile_analysis.md")
         cart_path.write_text(build_analysis([], target, cart_summary, scope="cart"), encoding="utf-8")
+        mirror_legacy(cart_path, run_dir, "cart_profile_analysis.md")
         paths["cart_profile_analysis"] = str(cart_path)
 
     print(json.dumps({"status": "ok", "paths": paths}, ensure_ascii=False, indent=2))

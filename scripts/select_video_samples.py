@@ -7,6 +7,8 @@ import argparse
 import csv
 import statistics
 from pathlib import Path
+
+from output_names import existing_output_path, mirror_legacy, output_path
 from typing import Any
 
 
@@ -108,10 +110,10 @@ def text_field(row: dict[str, str], *names: str) -> str:
 
 
 def find_input_path(run_dir: Path) -> Path:
-    preferred = run_dir / "content_asset_posts.csv"
+    preferred = existing_output_path(run_dir, "content_asset_posts.csv")
     if preferred.exists():
         return preferred
-    fallback = run_dir / "creator_posts.csv"
+    fallback = existing_output_path(run_dir, "creator_posts.csv")
     if fallback.exists():
         return fallback
     raise FileNotFoundError("Need content_asset_posts.csv or creator_posts.csv in run_dir.")
@@ -258,8 +260,8 @@ def build_md(run_dir: Path, source_path: Path, rows: list[dict[str, str]]) -> st
             "",
             "1. 下载候选媒体。",
             "2. 视频作品抽帧；图片/图文作品直接查看图片组。",
-            "3. 生成 `video_content_deep_dive.csv` 和 `video_content_deep_dive.md`。",
-            "4. 基于 2A + 2B 再生成 2C `nutrition_transfer_prediction.csv/md`。",
+            "3. 生成 `02B_媒体内容细看明细.csv` 和 `02B_媒体内容细看.md`。",
+            "4. 基于 2A + 2B 再生成 2C `02C_营养品议题转接预判明细.csv/md`。",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -274,10 +276,12 @@ def main() -> int:
     if args.max_candidates > 0:
         candidates = candidates[: args.max_candidates]
 
-    csv_path = run_dir / "video_sample_candidates.csv"
-    md_path = run_dir / "video_sample_candidates.md"
+    csv_path = output_path(run_dir, "video_sample_candidates.csv")
+    md_path = output_path(run_dir, "video_sample_candidates.md")
     write_csv(csv_path, candidates)
+    mirror_legacy(csv_path, run_dir, "video_sample_candidates.csv")
     md_path.write_text(build_md(run_dir, source_path, candidates), encoding="utf-8")
+    mirror_legacy(md_path, run_dir, "video_sample_candidates.md")
     print(f"wrote {csv_path}")
     print(f"wrote {md_path}")
     return 0

@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from output_names import mirror_legacy, output_path
+
 
 OUTPUT_COLUMNS = [
     "视频文件",
@@ -106,9 +108,10 @@ def main() -> int:
                     "错误信息": str(exc),
                 }
             )
-        output_path = run_dir / "video_frame_grids.csv"
-        write_csv(output_path, rows)
-        print(f"wrote {output_path}")
+        out_path = output_path(run_dir, "video_frame_grids.csv")
+        write_csv(out_path, rows)
+        mirror_legacy(out_path, run_dir, "video_frame_grids.csv")
+        print(f"wrote {out_path}")
         return 1
 
     for video_path in videos:
@@ -157,9 +160,10 @@ def main() -> int:
             }
         )
 
-    output_path = run_dir / "video_frame_grids.csv"
-    write_csv(output_path, rows)
-    print(f"wrote {output_path}")
+    out_path = output_path(run_dir, "video_frame_grids.csv")
+    write_csv(out_path, rows)
+    mirror_legacy(out_path, run_dir, "video_frame_grids.csv")
+    print(f"wrote {out_path}")
     return 0
 
 

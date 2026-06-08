@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from output_names import existing_output_path, mirror_legacy, output_path
+
 
 SCHEMA_FIELDS = [
     "作品ID",
@@ -231,9 +233,9 @@ def build_records(
     downloads_name: str,
     grids_name: str,
 ) -> list[dict[str, Any]]:
-    candidates = read_csv_if_exists(run_dir / candidates_name)
-    downloads = index_downloads(run_dir, read_csv_if_exists(run_dir / downloads_name))
-    grids = index_grids(run_dir, read_csv_if_exists(run_dir / grids_name))
+    candidates = read_csv_if_exists(existing_output_path(run_dir, candidates_name))
+    downloads = index_downloads(run_dir, read_csv_if_exists(existing_output_path(run_dir, downloads_name)))
+    grids = index_grids(run_dir, read_csv_if_exists(existing_output_path(run_dir, grids_name)))
     schema = expected_schema()
     records: list[dict[str, Any]] = []
 
@@ -321,9 +323,9 @@ def build_md(run_dir: Path, records: list[dict[str, Any]]) -> str:
             "",
             "## 下一步",
             "",
-            "1. 把 `video_understanding_handoff.jsonl` 交给媒体理解 Agent。",
+            "1. 把 `02B_媒体理解交接包.jsonl` 交给媒体理解 Agent。",
             "2. 让 Agent 逐条输出 JSONL，建议文件名：`video_understanding_results.jsonl`。",
-            "3. 运行 `render_video_deep_dive.py` 渲染 `video_content_deep_dive.csv/md`。",
+            "3. 运行 `render_video_deep_dive.py` 渲染 `02B_媒体内容细看明细.csv` 和 `02B_媒体内容细看.md`。",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -340,10 +342,12 @@ def main() -> int:
         downloads_name=args.downloads,
         grids_name=args.grids,
     )
-    jsonl_path = run_dir / "video_understanding_handoff.jsonl"
-    md_path = run_dir / "video_understanding_handoff.md"
+    jsonl_path = output_path(run_dir, "video_understanding_handoff.jsonl")
+    md_path = output_path(run_dir, "video_understanding_handoff.md")
     write_jsonl(jsonl_path, records)
+    mirror_legacy(jsonl_path, run_dir, "video_understanding_handoff.jsonl")
     md_path.write_text(build_md(run_dir, records), encoding="utf-8")
+    mirror_legacy(md_path, run_dir, "video_understanding_handoff.md")
     print(f"wrote {jsonl_path}")
     print(f"wrote {md_path}")
     return 0
