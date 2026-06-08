@@ -266,6 +266,15 @@ python3 scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp
 
 这两个文件只负责告诉执行者“哪些作品应该进入 2B 细看”，不替代真实媒体内容判断。
 
+生成抽样清单后必须停下来询问用户是否下载媒体，不能默认继续。询问时必须说明：
+
+```text
+我已经生成 2B 抽样清单。接下来要看真实媒体内容，是否下载这些样本？
+你也可以不按系统抽样，直接提供想详细拆解的视频/图文链接，或指定清单里的某几条。
+```
+
+如果用户指定了新的细看对象，应先把指定对象加入/替换 2B 样本，再进入下载；不要强行按系统抽样清单下载。
+
 2B / 2C 的硬门槛：
 
 - 视频作品必须查看具体抽帧图片 `2b_<作品ID>_grid.jpg`，不能只看标题、互动数据、视频链接或下载状态。
@@ -297,6 +306,8 @@ python3 scripts/download_sample_videos.py outputs/douyin_creator_assets/<timesta
 5. `2b_<作品ID>.url.txt`
 6. `2b_<作品ID>.raw.json`
 
+下载完成后必须再次询问是否继续抽帧/读取图片。不要默认继续抽帧、转写或交给媒体理解 Agent。
+
 抽帧查看视频内容时，优先运行：
 
 [`scripts/extract_video_frames.py`](scripts/extract_video_frames.py)
@@ -315,6 +326,8 @@ python3 scripts/extract_video_frames.py outputs/douyin_creator_assets/<timestamp
 `2b_<作品ID>_grid.jpg` 是视频 2B 正式判断的必要证据。没有这张具体抽帧图，即使已经下载了 mp4，也不能进入正式 2B 分析。
 
 图片/图文作品不需要抽帧，后续 handoff 必须直接带上图片文件路径。没有 mp4 时，不要把它判成下载失败；先检查是否是图片/图文作品。
+
+抽帧/图片准备完成后，必须询问是否交给媒体理解 Agent 读取具体画面、字幕或转写。用户确认后再生成媒体理解交接包或启动后续读取动作。
 
 生成媒体理解交接包时，优先运行：
 
@@ -338,6 +351,8 @@ video_understanding_results.jsonl
 ```
 
 如果生成交接包时发现视频缺少抽帧图，脚本会把该样本写入 `02B_待补看媒体证据清单.md`，不会把它放进正式 `02B_媒体理解交接包.jsonl`。
+
+2C 不需要单独询问；只要用户已经确认推进媒体理解，且 2B 已经形成有具体抽帧图/图片证据的正式结果，2C 可以作为后续分析产物继续生成。
 
 外部 Agent 回填后，渲染 2B 媒体内容细看：
 
