@@ -392,7 +392,7 @@ def comparison_table(rows: list[dict[str, str]]) -> list[str]:
         "| S层 | " + " | ".join(row["S层命中人群"] for row in rows) + " |",
         "| 留人入口 | " + " | ".join(row["前三秒"] for row in rows) + " |",
         "| 中段承接 | " + " | ".join(row["中段停留机制"] for row in rows) + " |",
-        "| 说服方式 | " + " | ".join(row["达人说服方式"] for row in rows) + " |",
+        "| 继续看方式 | " + " | ".join(row["达人说服方式"] for row in rows) + " |",
         "| 真实感 | " + " | ".join(row["内容真实感"] for row in rows) + " |",
         "",
     ]
@@ -456,7 +456,7 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
         lines.extend(title_or_subtitle_analysis(row))
         lines.extend(
             [
-                section_title(4, "说服方式"),
+                section_title(4, "继续看方式"),
                 "",
                 row["达人说服方式"],
                 "",
