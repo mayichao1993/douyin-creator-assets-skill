@@ -47,7 +47,10 @@ OUTPUT_COLUMNS = [
     "内容主题",
     "品类连接母类",
     "连接强度",
+    "是否发现挂车",
+    "挂车证据",
     "商品内容信号",
+    "商品信号证据",
 ]
 
 
@@ -209,7 +212,10 @@ def select_candidates(rows: list[dict[str, str]], top_k: int) -> list[dict[str, 
                 "内容主题": text_field(row, "内容主题"),
                 "品类连接母类": text_field(row, "品类连接母类"),
                 "连接强度": text_field(row, "连接强度"),
+                "是否发现挂车": text_field(row, "是否发现挂车"),
+                "挂车证据": text_field(row, "挂车证据"),
                 "商品内容信号": text_field(row, "商品内容信号"),
+                "商品信号证据": text_field(row, "商品信号证据"),
             }
         )
 

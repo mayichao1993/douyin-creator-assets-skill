@@ -21,6 +21,10 @@ COLUMNS = [
     "图片文件",
     "图片清单文件",
     "抽帧图",
+    "分析模式",
+    "是否发现挂车",
+    "挂车证据",
+    "商品内容信号",
     "S层命中人群",
     "前三秒",
     "不划走理由",
@@ -31,6 +35,8 @@ COLUMNS = [
     "媒体核心内容",
     "口播/字幕依据",
     "画面重点",
+    "继续看方式",
+    "商品说服方式",
     "达人说服方式",
     "内容真实感",
     "点赞为什么高/低",
@@ -176,6 +182,33 @@ def fallback(value: str) -> str:
     return value if value else "待补充"
 
 
+def meaningful_text(row: dict[str, Any], *names: str) -> str:
+    for name in names:
+        value = text(row, name)
+        if value and value not in {"不适用", "待补充", "无"}:
+            return value
+    return ""
+
+
+def is_cart_value(value: str) -> bool:
+    normalized = str(value or "").strip().lower()
+    return normalized in {"是", "yes", "y", "true", "1", "发现", "已发现"}
+
+
+def analysis_mode(row: dict[str, str]) -> str:
+    explicit = text(row, "分析模式")
+    if explicit in {"挂车", "非挂车"}:
+        return explicit
+    return "挂车" if is_cart_value(text(row, "是否发现挂车")) else "非挂车"
+
+
+def mode_specific_section(row: dict[str, str]) -> tuple[str, str]:
+    mode = analysis_mode(row)
+    if mode == "挂车":
+        return "商品说服方式", fallback(meaningful_text(row, "商品说服方式", "达人说服方式"))
+    return "继续看方式", fallback(meaningful_text(row, "继续看方式", "达人说服方式"))
+
+
 def build_rows(run_dir: Path, results: list[dict[str, Any]]) -> list[dict[str, str]]:
     candidates = index_by_id(read_csv_if_exists(existing_output_path(run_dir, "video_sample_candidates.csv")))
     downloads = index_by_id(read_csv_if_exists(existing_output_path(run_dir, "downloaded_videos.csv")))
@@ -202,6 +235,10 @@ def build_rows(run_dir: Path, results: list[dict[str, Any]]) -> list[dict[str, s
             "图片文件": image_files,
             "图片清单文件": existing_path_or_blank(run_dir, image_manifest),
             "抽帧图": existing_path_or_blank(run_dir, grid_path),
+            "分析模式": text(result, "分析模式") or ("挂车" if is_cart_value(text(candidate, "是否发现挂车")) else "非挂车"),
+            "是否发现挂车": text(result, "是否发现挂车") or text(candidate, "是否发现挂车"),
+            "挂车证据": text(result, "挂车证据") or text(candidate, "挂车证据"),
+            "商品内容信号": text(result, "商品内容信号") or text(candidate, "商品内容信号"),
         }
         for column in COLUMNS:
             if column in row:
@@ -390,9 +427,10 @@ def comparison_table(rows: list[dict[str, str]]) -> list[str]:
         "| 维度 | " + " | ".join(row["作品标题"].replace("|", "｜") for row in rows) + " |",
         "|---|" + "|".join("---" for _ in rows) + "|",
         "| S层 | " + " | ".join(row["S层命中人群"] for row in rows) + " |",
+        "| 分析模式 | " + " | ".join(analysis_mode(row) for row in rows) + " |",
         "| 留人入口 | " + " | ".join(row["前三秒"] for row in rows) + " |",
         "| 中段承接 | " + " | ".join(row["中段停留机制"] for row in rows) + " |",
-        "| 继续看方式 | " + " | ".join(row["达人说服方式"] for row in rows) + " |",
+        "| 继续看/商品说服 | " + " | ".join(mode_specific_section(row)[1] for row in rows) + " |",
         "| 真实感 | " + " | ".join(row["内容真实感"] for row in rows) + " |",
         "",
     ]
@@ -454,11 +492,12 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
             ]
         )
         lines.extend(title_or_subtitle_analysis(row))
+        section_name, section_value = mode_specific_section(row)
         lines.extend(
             [
-                section_title(4, "继续看方式"),
+                section_title(4, section_name),
                 "",
-                row["达人说服方式"],
+                section_value,
                 "",
                 section_title(5, "真实感"),
                 "",
