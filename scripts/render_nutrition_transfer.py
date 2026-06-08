@@ -62,6 +62,71 @@ def text(row: dict[str, str], *names: str) -> str:
     return ""
 
 
+def split_paths(value: str) -> list[str]:
+    paths: list[str] = []
+    for part in value.replace("\n", "；").split("；"):
+        stripped = part.strip()
+        if stripped:
+            paths.append(stripped)
+    return paths
+
+
+def path_exists_in_run_dir(run_dir: Path, path_text: str) -> bool:
+    if not path_text:
+        return False
+    path = Path(path_text)
+    if not path.exists():
+        return False
+    try:
+        path.resolve().relative_to(run_dir.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def has_image_evidence(run_dir: Path, row: dict[str, str]) -> bool:
+    manifest = text(row, "图片清单文件")
+    if path_exists_in_run_dir(run_dir, manifest):
+        return True
+    return any(path_exists_in_run_dir(run_dir, path) for path in split_paths(text(row, "图片文件")))
+
+
+def media_evidence_issue(run_dir: Path, row: dict[str, str]) -> str:
+    media_type = text(row, "媒体类型")
+    if media_type == "video":
+        grid = text(row, "抽帧图")
+        if path_exists_in_run_dir(run_dir, grid):
+            return ""
+        return "视频样本缺少具体抽帧图"
+    if media_type == "image":
+        if has_image_evidence(run_dir, row):
+            return ""
+        return "图文样本缺少具体图片文件"
+    grid = text(row, "抽帧图")
+    if path_exists_in_run_dir(run_dir, grid):
+        return ""
+    if has_image_evidence(run_dir, row):
+        return ""
+    return "媒体类型不明且缺少可查看的抽帧图/图片文件"
+
+
+def ensure_deep_dive_ready(run_dir: Path) -> None:
+    deep_path = existing_output_path(run_dir, "video_content_deep_dive.csv")
+    deep_rows = read_csv_if_exists(deep_path)
+    if not deep_rows:
+        raise RuntimeError("missing_2b_deep_dive: 2C 必须在 2B 看完具体抽帧图/图片并生成细看明细后执行。")
+    issues = [
+        f"{text(row, '作品ID')}:{media_evidence_issue(run_dir, row)}"
+        for row in deep_rows
+        if media_evidence_issue(run_dir, row)
+    ]
+    if issues:
+        raise RuntimeError(
+            "missing_media_evidence: 2C 未生成；2B 样本缺少具体媒体证据。"
+            + "；".join(issues)
+        )
+
+
 def index_by_id(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
     indexed: dict[str, dict[str, str]] = {}
     for row in rows:
@@ -289,6 +354,7 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
 def main() -> int:
     args = parse_args()
     run_dir = Path(args.run_dir)
+    ensure_deep_dive_ready(run_dir)
     rows = build_rows(run_dir, args.max_items)
     csv_path = output_path(run_dir, "nutrition_transfer_prediction.csv")
     md_path = output_path(run_dir, "nutrition_transfer_prediction.md")

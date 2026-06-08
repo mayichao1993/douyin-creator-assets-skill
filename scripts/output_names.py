@@ -21,6 +21,8 @@ CANONICAL_NAMES = {
     "video_sample_candidates.md": "02B_媒体细看抽样清单.md",
     "downloaded_videos.csv": "02B_候选媒体下载结果.csv",
     "video_frame_grids.csv": "02B_视频抽帧结果.csv",
+    "media_evidence_missing.csv": "02B_待补看媒体证据清单.csv",
+    "media_evidence_missing.md": "02B_待补看媒体证据清单.md",
     "video_understanding_handoff.jsonl": "02B_媒体理解交接包.jsonl",
     "video_understanding_handoff.md": "02B_媒体理解交接包.md",
     "video_content_deep_dive.csv": "02B_媒体内容细看明细.csv",

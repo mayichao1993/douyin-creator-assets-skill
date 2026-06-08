@@ -152,7 +152,23 @@ def existing_path_or_blank(run_dir: Path, path_text: str) -> str:
     if not path_text:
         return ""
     normalized = normalize_path(run_dir, path_text)
-    return normalized if Path(normalized).exists() else ""
+    normalized_path = Path(normalized)
+    if not normalized_path.exists():
+        return ""
+    try:
+        normalized_path.resolve().relative_to(run_dir.resolve())
+    except ValueError:
+        return ""
+    return str(normalized_path)
+
+
+def split_paths(value: str) -> list[str]:
+    paths: list[str] = []
+    for part in value.replace("\n", "；").split("；"):
+        stripped = part.strip()
+        if stripped:
+            paths.append(stripped)
+    return paths
 
 
 def fallback(value: str) -> str:
@@ -195,6 +211,79 @@ def build_rows(run_dir: Path, results: list[dict[str, Any]]) -> list[dict[str, s
                 row[column] = fallback(text(result, column))
         rows.append(row)
     return rows
+
+
+def has_image_evidence(row: dict[str, str]) -> bool:
+    if row.get("图片清单文件") and Path(row["图片清单文件"]).exists():
+        return True
+    return any(Path(path).exists() for path in split_paths(row.get("图片文件", "")))
+
+
+def media_evidence_issue(row: dict[str, str]) -> str:
+    media_type = row.get("媒体类型") or ""
+    if media_type == "video":
+        if row.get("抽帧图") and Path(row["抽帧图"]).exists():
+            return ""
+        return "视频样本缺少具体抽帧图，不能生成 2B 正式判断"
+    if media_type == "image":
+        if has_image_evidence(row):
+            return ""
+        return "图文样本缺少具体图片文件，不能生成 2B 正式判断"
+    if row.get("抽帧图") and Path(row["抽帧图"]).exists():
+        return ""
+    if has_image_evidence(row):
+        return ""
+    return "媒体类型不明且缺少可查看的抽帧图/图片文件"
+
+
+def find_missing_media_evidence(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    missing: list[dict[str, str]] = []
+    for row in rows:
+        issue = media_evidence_issue(row)
+        if not issue:
+            continue
+        missing.append(
+            {
+                "作品ID": row.get("作品ID", ""),
+                "作品标题": row.get("作品标题", ""),
+                "抽样锚点": row.get("四项互动锚点", ""),
+                "媒体类型": row.get("媒体类型", ""),
+                "缺失原因": issue,
+                "视频文件": row.get("视频文件", ""),
+                "图片文件": row.get("图片文件", ""),
+                "抽帧图": row.get("抽帧图", ""),
+                "处理动作": "先补下载/抽帧，再重新回填媒体理解结果",
+            }
+        )
+    return missing
+
+
+def write_missing_media_evidence(run_dir: Path, rows: list[dict[str, str]]) -> None:
+    columns = ["作品ID", "作品标题", "抽样锚点", "媒体类型", "缺失原因", "视频文件", "图片文件", "抽帧图", "处理动作"]
+    csv_path = output_path(run_dir, "media_evidence_missing.csv")
+    md_path = output_path(run_dir, "media_evidence_missing.md")
+    with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    mirror_legacy(csv_path, run_dir, "media_evidence_missing.csv")
+    lines = [
+        "# 2B 待补看媒体证据清单",
+        "",
+        f"- 来源目录：`{run_dir}`",
+        f"- 待补样本数：{len(rows)}",
+        "- 规则：视频样本必须有具体抽帧图，图文样本必须有具体图片文件；缺证据的样本不得进入 2B/2C 正式判断。",
+        "",
+        "| 作品ID | 标题 | 媒体类型 | 缺失原因 | 处理动作 |",
+        "|---|---|---|---|---|",
+    ]
+    for row in rows:
+        title = row["作品标题"].replace("|", "｜")
+        lines.append(
+            f"| `{row['作品ID']}` | {title} | {row['媒体类型']} | {row['缺失原因']} | {row['处理动作']} |"
+        )
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    mirror_legacy(md_path, run_dir, "media_evidence_missing.md")
 
 
 def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
@@ -295,6 +384,12 @@ def main() -> int:
         results_path = run_dir / results_path
     results = read_results(results_path)
     rows = build_rows(run_dir, results)
+    missing = find_missing_media_evidence(rows)
+    if missing:
+        write_missing_media_evidence(run_dir, missing)
+        raise RuntimeError(
+            "missing_media_evidence: 2B 正式报告未生成；视频必须先看具体抽帧图，图文必须先看具体图片。"
+        )
     csv_path = output_path(run_dir, "video_content_deep_dive.csv")
     md_path = output_path(run_dir, "video_content_deep_dive.md")
     write_csv(csv_path, rows)

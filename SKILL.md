@@ -266,6 +266,13 @@ python3 scripts/select_video_samples.py outputs/douyin_creator_assets/<timestamp
 
 这两个文件只负责告诉执行者“哪些作品应该进入 2B 细看”，不替代真实媒体内容判断。
 
+2B / 2C 的硬门槛：
+
+- 视频作品必须查看具体抽帧图片 `2b_<作品ID>_grid.jpg`，不能只看标题、互动数据、视频链接或下载状态。
+- 图片/图文作品必须查看具体图片文件或图片清单，不能因为没有 mp4 就当作下载失败。
+- 如果视频没有抽帧图，或图文没有图片文件，只能生成 `02B_待补看媒体证据清单.md` / `02B_待补看媒体证据清单.csv`。
+- 缺少具体媒体证据时，不得生成 `02B_媒体内容细看.md`，也不得继续生成 `02C_营养品议题转接预判.md`。
+
 下载候选媒体时，优先运行：
 
 [`scripts/download_sample_videos.py`](scripts/download_sample_videos.py)
@@ -305,6 +312,8 @@ python3 scripts/extract_video_frames.py outputs/douyin_creator_assets/<timestamp
 1. `02B_视频抽帧结果.csv`
 2. `2b_<作品ID>_grid.jpg`
 
+`2b_<作品ID>_grid.jpg` 是视频 2B 正式判断的必要证据。没有这张具体抽帧图，即使已经下载了 mp4，也不能进入正式 2B 分析。
+
 图片/图文作品不需要抽帧，后续 handoff 必须直接带上图片文件路径。没有 mp4 时，不要把它判成下载失败；先检查是否是图片/图文作品。
 
 生成媒体理解交接包时，优先运行：
@@ -328,6 +337,8 @@ python3 scripts/build_video_understanding_handoff.py outputs/douyin_creator_asse
 video_understanding_results.jsonl
 ```
 
+如果生成交接包时发现视频缺少抽帧图，脚本会把该样本写入 `02B_待补看媒体证据清单.md`，不会把它放进正式 `02B_媒体理解交接包.jsonl`。
+
 外部 Agent 回填后，渲染 2B 媒体内容细看：
 
 [`scripts/render_video_deep_dive.py`](scripts/render_video_deep_dive.py)
@@ -343,6 +354,8 @@ python3 scripts/render_video_deep_dive.py outputs/douyin_creator_assets/<timesta
 1. `02B_媒体内容细看明细.csv`
 2. `02B_媒体内容细看.md`
 
+渲染 2B 时会再次检查媒体证据：视频必须有存在于本地的抽帧图，图文必须有存在于本地的图片文件。检查不通过时，脚本只更新待补看清单，不生成正式 2B 报告。
+
 2B 完成后，生成 2C 营养品议题转接预判：
 
 [`scripts/render_nutrition_transfer.py`](scripts/render_nutrition_transfer.py)
@@ -357,6 +370,8 @@ python3 scripts/render_nutrition_transfer.py outputs/douyin_creator_assets/<time
 
 1. `02C_营养品议题转接预判明细.csv`
 2. `02C_营养品议题转接预判.md`
+
+2C 必须建立在已经看过具体抽帧图/图片的 2B 结果上；如果 2B 缺失或媒体证据不完整，2C 不能生成正式文档。
 
 2B 前三秒判断只保留为本 Skill 的执行维度，不写成对外部方法论的硬调用依赖。不要只写“真人出镜/实物展示/口播开头”，必须判断：
 

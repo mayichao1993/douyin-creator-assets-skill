@@ -107,6 +107,19 @@ def normalize_path(run_dir: Path, path_text: str) -> str:
     return str(path)
 
 
+def path_exists_in_run_dir(run_dir: Path, path_text: str) -> bool:
+    if not path_text:
+        return False
+    path = Path(path_text)
+    if not path.exists():
+        return False
+    try:
+        path.resolve().relative_to(run_dir.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def index_downloads(run_dir: Path, rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
     indexed: dict[str, dict[str, str]] = {}
     for row in rows:
@@ -207,9 +220,10 @@ def build_prompt(record: dict[str, Any]) -> str:
         f"图片文件：{media['image_paths'] or '无'}",
         f"抽帧图：{media['frame_grid_path'] or '无'}",
         f"字幕/转写：{media['transcript_path'] or '无'}",
+        f"媒体证据状态：{media.get('evidence_note') or '无'}",
     ]
     return (
-        "请查看这个抖音样本的媒体文件：如果 media_type=video，就看视频文件和抽帧图；如果 media_type=image，就看图片文件/图片清单。按 output_schema 输出一个 JSON 对象。\n"
+        "请查看这个抖音样本的媒体文件：如果 media_type=video，必须看具体抽帧图；如果 media_type=image，就看图片文件/图片清单。按 output_schema 输出一个 JSON 对象。\n"
         "不要只复述画面。每条判断都按“媒体证据 -> 打中的家长问题 -> 互动数据是否验证 -> 对点赞/评论/收藏/分享的影响”来写。\n"
         "S层命中人群不要写成宝妈/家长这种身份词，要写清她现在卡在哪一步。\n"
         "视频作品要判断前三秒为什么用户愿意先停一下、属于哪类文案入口、用了什么停留技巧、后文有没有接住。\n"
@@ -225,6 +239,22 @@ def build_prompt(record: dict[str, Any]) -> str:
     )
 
 
+def evidence_status(record: dict[str, Any]) -> tuple[bool, str]:
+    media = record["media"]
+    media_type = media.get("media_type") or ""
+    if media_type == "video":
+        if media.get("frame_grid_path"):
+            return True, "视频样本已提供具体抽帧图"
+        return False, "视频样本缺少具体抽帧图，必须先运行 extract_video_frames.py 生成 2b_<作品ID>_grid.jpg"
+    if media_type == "image":
+        if media.get("image_paths"):
+            return True, "图文样本已提供具体图片文件"
+        return False, "图文样本缺少图片文件，必须先下载图片组"
+    if media.get("frame_grid_path") or media.get("image_paths"):
+        return True, "已提供可查看媒体证据"
+    return False, "媒体类型不明且缺少可查看的抽帧图/图片文件"
+
+
 def build_records(
     run_dir: Path,
     transcript_dir: Path,
@@ -232,12 +262,13 @@ def build_records(
     candidates_name: str,
     downloads_name: str,
     grids_name: str,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     candidates = read_csv_if_exists(existing_output_path(run_dir, candidates_name))
     downloads = index_downloads(run_dir, read_csv_if_exists(existing_output_path(run_dir, downloads_name)))
     grids = index_grids(run_dir, read_csv_if_exists(existing_output_path(run_dir, grids_name)))
     schema = expected_schema()
     records: list[dict[str, Any]] = []
+    missing: list[dict[str, Any]] = []
 
     for row in candidates:
         if text(row, "建议下载") not in {"", "是", "yes", "Y", "y", "1", "true", "True"}:
@@ -248,8 +279,13 @@ def build_records(
         download_row = downloads.get(aweme_id, {})
         grid_row = grids.get(aweme_id, {})
         media_type = text(download_row, "媒体类型") or ("image" if text(download_row, "图片文件", "图片清单文件") else "video")
-        video_path = normalize_path(run_dir, text(download_row, "视频文件") or str(run_dir / f"2b_{aweme_id}.mp4"))
-        image_manifest_path = normalize_path(run_dir, text(download_row, "图片清单文件") or str(run_dir / f"2b_{aweme_id}_images.json"))
+        local_video_path = str(run_dir / f"2b_{aweme_id}.mp4")
+        video_path = normalize_path(run_dir, local_video_path if Path(local_video_path).exists() else text(download_row, "视频文件"))
+        local_manifest_path = str(run_dir / f"2b_{aweme_id}_images.json")
+        image_manifest_path = normalize_path(
+            run_dir,
+            local_manifest_path if Path(local_manifest_path).exists() else text(download_row, "图片清单文件"),
+        )
         image_paths = [
             normalize_path(run_dir, path)
             for path in split_paths(text(download_row, "图片文件"))
@@ -275,19 +311,63 @@ def build_records(
             },
             "media": {
                 "media_type": media_type,
-                "video_path": video_path if Path(video_path).exists() else "",
-                "image_paths": [path for path in image_paths if Path(path).exists()],
-                "image_manifest_path": image_manifest_path if Path(image_manifest_path).exists() else "",
-                "frame_grid_path": grid_path if Path(grid_path).exists() else "",
+                "video_path": video_path if path_exists_in_run_dir(run_dir, video_path) else "",
+                "image_paths": [path for path in image_paths if path_exists_in_run_dir(run_dir, path)],
+                "image_manifest_path": image_manifest_path if path_exists_in_run_dir(run_dir, image_manifest_path) else "",
+                "frame_grid_path": grid_path if path_exists_in_run_dir(run_dir, grid_path) else "",
                 "transcript_path": transcript_path,
                 "video_url_file": normalize_path(run_dir, str(run_dir / f"2b_{aweme_id}.url.txt")),
             },
             "output_schema": schema,
             "prompt": "",
         }
+        ok, evidence_note = evidence_status(record)
+        record["media"]["evidence_note"] = evidence_note
         record["prompt"] = build_prompt(record)
-        records.append(record)
-    return records
+        if ok:
+            records.append(record)
+        else:
+            missing.append(
+                {
+                    "作品ID": aweme_id,
+                    "作品标题": record["title"],
+                    "抽样锚点": record["sampling"]["anchors"],
+                    "媒体类型": media_type,
+                    "缺失原因": evidence_note,
+                    "视频文件": record["media"]["video_path"],
+                    "图片文件": "；".join(record["media"]["image_paths"]),
+                    "抽帧图": record["media"]["frame_grid_path"],
+                    "处理动作": "先补下载/抽帧，再生成正式 2B 媒体理解交接包",
+                }
+            )
+    return records, missing
+
+
+def write_missing_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    columns = ["作品ID", "作品标题", "抽样锚点", "媒体类型", "缺失原因", "视频文件", "图片文件", "抽帧图", "处理动作"]
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def build_missing_md(run_dir: Path, rows: list[dict[str, Any]]) -> str:
+    lines = [
+        "# 2B 待补看媒体证据清单",
+        "",
+        f"- 来源目录：`{run_dir}`",
+        f"- 待补样本数：{len(rows)}",
+        "- 规则：视频样本必须有具体抽帧图，图文样本必须有具体图片文件；缺证据的样本不得进入 2B/2C 正式判断。",
+        "",
+        "| 作品ID | 标题 | 媒体类型 | 缺失原因 | 处理动作 |",
+        "|---|---|---|---|---|",
+    ]
+    for row in rows:
+        title = str(row["作品标题"]).replace("|", "｜")
+        lines.append(
+            f"| `{row['作品ID']}` | {title} | {row['媒体类型']} | {row['缺失原因']} | {row['处理动作']} |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def build_md(run_dir: Path, records: list[dict[str, Any]]) -> str:
@@ -297,6 +377,7 @@ def build_md(run_dir: Path, records: list[dict[str, Any]]) -> str:
         f"- 来源目录：`{run_dir}`",
         f"- 样本数：{len(records)}",
         "- 用途：交给 WorkBuddy 或其他能查看视频/图片/字幕的 Agent，按统一 JSON 字段回填 2B 细看结果。",
+        "- 硬门槛：视频样本必须查看具体抽帧图；没有抽帧图的样本不进入本交接包，只进入待补看清单。",
         "",
         "## 回填要求",
         "",
@@ -335,13 +416,22 @@ def main() -> int:
     args = parse_args()
     run_dir = Path(args.run_dir)
     transcript_dir = Path(args.transcript_dir) if args.transcript_dir else run_dir
-    records = build_records(
+    records, missing = build_records(
         run_dir,
         transcript_dir,
         candidates_name=args.candidates,
         downloads_name=args.downloads,
         grids_name=args.grids,
     )
+    if missing:
+        missing_csv_path = output_path(run_dir, "media_evidence_missing.csv")
+        missing_md_path = output_path(run_dir, "media_evidence_missing.md")
+        write_missing_csv(missing_csv_path, missing)
+        mirror_legacy(missing_csv_path, run_dir, "media_evidence_missing.csv")
+        missing_md_path.write_text(build_missing_md(run_dir, missing), encoding="utf-8")
+        mirror_legacy(missing_md_path, run_dir, "media_evidence_missing.md")
+        print(f"wrote {missing_csv_path}")
+        print(f"wrote {missing_md_path}")
     jsonl_path = output_path(run_dir, "video_understanding_handoff.jsonl")
     md_path = output_path(run_dir, "video_understanding_handoff.md")
     write_jsonl(jsonl_path, records)
