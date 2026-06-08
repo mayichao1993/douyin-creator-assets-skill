@@ -92,6 +92,21 @@ python3 scripts/collect_creator_assets.py 'https://www.douyin.com/user/xxx' --co
 
 只分析已有 CSV / JSON 时，不要重新抓取，直接读取用户给的文件。
 
+如果第一项基础盘已有 `raw.json` / `interaction_summary.csv`，但缺少 `basic_profile_analysis.md`，不要跳过第一项文档，优先运行补渲染脚本：
+
+[`scripts/render_basic_profile.py`](scripts/render_basic_profile.py)
+
+常用命令：
+
+```bash
+python3 scripts/render_basic_profile.py outputs/douyin_creator_assets/<timestamp>
+```
+
+该脚本读取 `raw.json` 或 `interaction_summary.csv`，输出：
+
+1. `basic_profile_analysis.md`
+2. `cart_profile_analysis.md`（存在挂车短视频汇总时）
+
 ### 1.1 挂车识别逻辑
 
 挂车判断不能只看 `anchors`、`product_info`、`shop_info`，必须检查抖音公开接口返回的多类锚点字段。尤其要检查 `aweme_anchor_info`，因为实际挂车视频经常通过这个字段返回。

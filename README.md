@@ -59,6 +59,19 @@ outputs/douyin_creator_assets/<timestamp>/
 python3 path/to/douyin-creator-assets/scripts/analyze_content_assets.py outputs/douyin_creator_assets/<timestamp>
 ```
 
+如果第一项基础盘 CSV/JSON 已存在，但缺少第一项 Markdown 文档，可补渲染：
+
+```bash
+python3 path/to/douyin-creator-assets/scripts/render_basic_profile.py outputs/douyin_creator_assets/<timestamp>
+```
+
+补渲染会输出：
+
+```text
+basic_profile_analysis.md
+cart_profile_analysis.md（有挂车短视频样本时）
+```
+
 生成 2B 视频细看候选清单：
 
 ```bash
