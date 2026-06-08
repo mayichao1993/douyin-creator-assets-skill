@@ -1,0 +1,7 @@
+interface:
+  display_name: "抖音达人资产库"
+  short_description: "采集赞评藏转，生成达人基础盘和内容资产盘"
+  default_prompt: "Use $douyin-creator-assets to collect public Douyin creator interaction data and build creator asset reports."
+
+policy:
+  allow_implicit_invocation: true
