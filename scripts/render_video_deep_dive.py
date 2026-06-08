@@ -44,6 +44,8 @@ COLUMNS = [
 
 METRIC_COLUMNS = ["点赞数", "评论数", "收藏数", "分享数", "总互动"]
 
+CN_INDEX = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -309,65 +311,184 @@ def metric_table(run_dir: Path, rows: list[dict[str, str]]) -> list[str]:
     return lines
 
 
-def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
+def metric_map(run_dir: Path) -> dict[str, dict[str, str]]:
+    return index_by_id(read_csv_if_exists(existing_output_path(run_dir, "video_sample_candidates.csv")))
+
+
+def candidate_metric(candidate: dict[str, str], field: str) -> str:
+    return text(candidate, field) or "0"
+
+
+def sample_overview(run_dir: Path, rows: list[dict[str, str]]) -> list[str]:
+    candidates = metric_map(run_dir)
     lines = [
-        "# 媒体内容细看报告（2B）",
+        "## 样本概览",
         "",
-        "- 来源：本次 2B 运行结果",
-        f"- 样本数：{len(rows)}",
-        "- 查看方式：由外部媒体理解 Agent 查看 mp4/抽帧图/图片/字幕后回填 JSON，本脚本只负责渲染成 2B 报告。",
-        "- 阅读口径：正文只展示判断；媒体文件路径和口播/字幕原始依据保留在明细表，不单独放进正文。",
-        "",
-        "## 1. 抽样锚点",
-        "",
+        "| 作品ID | 标题 | 抽选锚点 | 点赞 | 评论 | 收藏 | 分享 | 总互动 |",
+        "|---|---|---|---:|---:|---:|---:|---:|",
     ]
-    lines.extend(metric_table(run_dir, rows))
-    lines.extend(["", "## 2. 单条媒体细看", ""])
     for row in rows:
+        candidate = candidates.get(row["作品ID"], {})
+        title = row["作品标题"].replace("|", "｜")
+        lines.append(
+            f"| `{row['作品ID']}` | {title} | {row['四项互动锚点']} | "
+            f"{candidate_metric(candidate, '点赞数')} | {candidate_metric(candidate, '评论数')} | "
+            f"{candidate_metric(candidate, '收藏数')} | {candidate_metric(candidate, '分享数')} | "
+            f"{candidate_metric(candidate, '总互动')} |"
+        )
+    return lines
+
+
+def section_title(index: int, title: str) -> str:
+    label = CN_INDEX[index] if index < len(CN_INDEX) else str(index + 1)
+    return f"### {label}、{title}"
+
+
+def media_entry_label(row: dict[str, str]) -> str:
+    return "首图/前两张图" if row.get("媒体类型") == "image" else "前三秒"
+
+
+def title_or_subtitle_analysis(row: dict[str, str]) -> list[str]:
+    lines = [section_title(3, "标题 / 字幕 / 画面关系"), ""]
+    evidence = row.get("口播/字幕依据", "")
+    if evidence and evidence != "待补充":
         lines.extend(
             [
-                f"### {row['作品ID']}：{row['作品标题']}",
-                "",
-                f"打的是：{row['S层命中人群']}",
-                "",
-                f"留人入口：{row['前三秒']}",
-                "",
-                f"不划走理由：{row['不划走理由']}",
-                "",
-                f"入口类型：{row['前三秒文案类型']}",
-                "",
-                f"停留技巧：{row['三秒停留技巧']}",
-                "",
-                f"后续承接：{row['后文是否接住前三秒']}",
-                "",
-                f"中段停留机制：{row['中段停留机制']}",
-                "",
-                f"媒体核心内容：{row['媒体核心内容']}",
-                "",
-                f"画面重点：{row['画面重点']}",
-                "",
-                f"商品出现方式：{row['商品出现方式']}",
-                "",
-                f"达人说服方式：{row['达人说服方式']}",
-                "",
-                f"内容真实感：{row['内容真实感']}",
-                "",
-                "| 互动 | 判断 |",
-                "|---|---|",
-                f"| 点赞 | {row['点赞为什么高/低']} |",
-                f"| 评论 | {row['评论为什么高/低']} |",
-                f"| 收藏 | {row['收藏为什么高/低']} |",
-                f"| 分享 | {row['分享为什么高/低']} |",
-                "",
-                f"品类连接来源：{row['品类连接来源']}",
-                "",
-                f"下一步评论验证点：{row['下一步评论验证点']}",
+                f"可见文字/口播的作用：{evidence}",
                 "",
             ]
         )
     lines.extend(
         [
-            "## 3. 文件",
+            f"画面重点：{row['画面重点']}",
+            "",
+        ]
+    )
+    return lines
+
+
+def interaction_sections(row: dict[str, str]) -> list[str]:
+    return [
+        section_title(7, "四项互动归因"),
+        "",
+        f"#### 点赞 — {row['点赞为什么高/低']}",
+        "",
+        f"#### 评论 — {row['评论为什么高/低']}",
+        "",
+        f"#### 收藏 — {row['收藏为什么高/低']}",
+        "",
+        f"#### 分享 — {row['分享为什么高/低']}",
+        "",
+    ]
+
+
+def comparison_table(rows: list[dict[str, str]]) -> list[str]:
+    if len(rows) < 2:
+        return []
+    lines = [
+        "## 多样本对比总结",
+        "",
+        "| 维度 | " + " | ".join(row["作品标题"].replace("|", "｜") for row in rows) + " |",
+        "|---|" + "|".join("---" for _ in rows) + "|",
+        "| S层 | " + " | ".join(row["S层命中人群"] for row in rows) + " |",
+        "| 留人入口 | " + " | ".join(row["前三秒"] for row in rows) + " |",
+        "| 中段承接 | " + " | ".join(row["中段停留机制"] for row in rows) + " |",
+        "| 商品出现 | " + " | ".join(row["商品出现方式"] for row in rows) + " |",
+        "| 说服方式 | " + " | ".join(row["达人说服方式"] for row in rows) + " |",
+        "| 真实感 | " + " | ".join(row["内容真实感"] for row in rows) + " |",
+        "",
+    ]
+    return lines
+
+
+def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
+    lines = [
+        "# 02B 媒体内容细看",
+        "",
+        "- 来源：本次 2B 运行结果",
+        f"- 样本数：{len(rows)}",
+        "- 查看方式：由外部媒体理解 Agent 查看 mp4/抽帧图/图片/字幕后回填 JSON，本脚本只负责渲染成 2B 报告。",
+        "- 阅读口径：基于真实媒体内容输出，正文按固定深拆结构呈现；媒体文件路径保留在明细表，不放进正文。",
+        "",
+    ]
+    lines.extend(sample_overview(run_dir, rows))
+    lines.extend(["", "---", ""])
+    for index, row in enumerate(rows):
+        label = CN_INDEX[index] if index < len(CN_INDEX) else str(index + 1)
+        candidate = metric_map(run_dir).get(row["作品ID"], {})
+        total = candidate_metric(candidate, "总互动")
+        like = candidate_metric(candidate, "点赞数")
+        comment = candidate_metric(candidate, "评论数")
+        collect = candidate_metric(candidate, "收藏数")
+        share = candidate_metric(candidate, "分享数")
+        lines.extend(
+            [
+                f"## 作品{label}：{row['作品标题']} — {row['四项互动锚点']}",
+                "",
+                f"**作品ID**：`{row['作品ID']}`",
+                "",
+                f"**总互动**：{total}（点赞 {like} + 评论 {comment} + 收藏 {collect} + 分享 {share}）",
+                "",
+                "---",
+                "",
+                section_title(0, "S层命中人群"),
+                "",
+                f"**人群画像**：{row['S层命中人群']}",
+                "",
+                section_title(1, f"{media_entry_label(row)}：为什么不划走"),
+                "",
+                f"**入口画面/内容**：{row['前三秒']}",
+                "",
+                f"**为什么愿意先停一下**：{row['不划走理由']}",
+                "",
+                f"**入口类型**：{row['前三秒文案类型']}",
+                "",
+                f"**停留技巧**：{row['三秒停留技巧']}",
+                "",
+                f"**后文承接判断**：{row['后文是否接住前三秒']}",
+                "",
+                section_title(2, "中段承接分析"),
+                "",
+                f"**媒体核心内容**：{row['媒体核心内容']}",
+                "",
+                f"**中段是否接住入口期待**：{row['中段停留机制']}",
+                "",
+            ]
+        )
+        lines.extend(title_or_subtitle_analysis(row))
+        lines.extend(
+            [
+                section_title(4, "商品出现方式"),
+                "",
+                row["商品出现方式"],
+                "",
+                section_title(5, "说服方式"),
+                "",
+                row["达人说服方式"],
+                "",
+                section_title(6, "真实感"),
+                "",
+                row["内容真实感"],
+                "",
+            ]
+        )
+        lines.extend(interaction_sections(row))
+        lines.extend(
+            [
+                section_title(8, "品类连接和评论验证"),
+                "",
+                f"**品类连接来源**：{row['品类连接来源']}",
+                "",
+                f"**下一步评论验证点**：{row['下一步评论验证点']}",
+                "",
+                "---",
+                "",
+            ]
+        )
+    lines.extend(comparison_table(rows))
+    lines.extend(
+        [
+            "## 文件",
             "",
             f"- 2B 明细表：同目录 `{output_path(run_dir, 'video_content_deep_dive.csv').name}`",
         ]
