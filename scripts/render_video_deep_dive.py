@@ -313,9 +313,10 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
     lines = [
         "# 媒体内容细看报告（2B）",
         "",
-        f"- 来源目录：`{run_dir}`",
+        "- 来源：本次 2B 运行结果",
         f"- 样本数：{len(rows)}",
         "- 查看方式：由外部媒体理解 Agent 查看 mp4/抽帧图/图片/字幕后回填 JSON，本脚本只负责渲染成 2B 报告。",
+        "- 阅读口径：正文只展示判断；媒体文件路径和口播/字幕原始依据保留在明细表，不单独放进正文。",
         "",
         "## 1. 抽样锚点",
         "",
@@ -323,12 +324,6 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
     lines.extend(metric_table(run_dir, rows))
     lines.extend(["", "## 2. 单条媒体细看", ""])
     for row in rows:
-        if row["媒体类型"] == "image":
-            media_line = f"媒体素材：image；图片：`{row['图片文件']}`"
-        elif row["媒体类型"] == "video":
-            media_line = f"媒体素材：video；视频：`{row['视频文件']}`；抽帧图：`{row['抽帧图']}`"
-        else:
-            media_line = f"媒体素材：{row['媒体类型']}；视频：`{row['视频文件']}`；图片：`{row['图片文件']}`"
         lines.extend(
             [
                 f"### {row['作品ID']}：{row['作品标题']}",
@@ -339,19 +334,23 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
                 "",
                 f"不划走理由：{row['不划走理由']}",
                 "",
-                f"入口类型：{row['前三秒文案类型']}；停留技巧：{row['三秒停留技巧']}；后续承接：{row['后文是否接住前三秒']}",
+                f"入口类型：{row['前三秒文案类型']}",
+                "",
+                f"停留技巧：{row['三秒停留技巧']}",
+                "",
+                f"后续承接：{row['后文是否接住前三秒']}",
                 "",
                 f"中段停留机制：{row['中段停留机制']}",
                 "",
                 f"媒体核心内容：{row['媒体核心内容']}",
                 "",
-                media_line,
-                "",
-                f"口播/字幕依据：{row['口播/字幕依据']}",
-                "",
                 f"画面重点：{row['画面重点']}",
                 "",
-                f"商品出现方式：{row['商品出现方式']}；达人说服方式：{row['达人说服方式']}；内容真实感：{row['内容真实感']}",
+                f"商品出现方式：{row['商品出现方式']}",
+                "",
+                f"达人说服方式：{row['达人说服方式']}",
+                "",
+                f"内容真实感：{row['内容真实感']}",
                 "",
                 "| 互动 | 判断 |",
                 "|---|---|",
@@ -370,7 +369,7 @@ def build_md(run_dir: Path, rows: list[dict[str, str]]) -> str:
         [
             "## 3. 文件",
             "",
-            f"- 2B 明细表：`{output_path(run_dir, 'video_content_deep_dive.csv')}`",
+            f"- 2B 明细表：同目录 `{output_path(run_dir, 'video_content_deep_dive.csv').name}`",
         ]
     )
     return "\n".join(lines) + "\n"
