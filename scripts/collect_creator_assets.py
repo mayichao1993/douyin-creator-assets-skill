@@ -1070,6 +1070,38 @@ def cart_video_stats(rows: list[dict[str, Any]], *, scan_label: str = "主页前
     }
 
 
+def analysis_route(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    normal_count = len(baseline_rows(rows))
+    cart_count = len(homepage_cart_rows(rows))
+    scan_rows = homepage_scan_rows(rows)
+    scan_label = f"主页前{HOMEPAGE_CART_SCAN_COUNT}条"
+    if not scan_rows and rows:
+        scan_rows = rows
+        scan_label = "当前视频"
+    cart_stats = cart_video_stats(scan_rows, scan_label=scan_label)
+
+    if normal_count and cart_count:
+        mode = "mixed"
+        judgment = "本次同时发现主页普通作品和挂车作品，两个样本池分别生成分析，不混算。"
+    elif cart_count:
+        mode = "cart_only"
+        judgment = "本次没有可进入普通主页基础盘的非置顶、非挂车作品，只生成挂车作品分析。"
+    elif normal_count:
+        mode = "normal_only"
+        judgment = "本次未发现可单独分析的挂车作品，只生成主页普通作品分析。"
+    else:
+        mode = "empty"
+        judgment = "本次没有可进入普通主页基础盘或挂车基础盘的有效作品。"
+
+    return {
+        "mode": mode,
+        "normal_sample_count": normal_count,
+        "cart_sample_count": cart_count,
+        "route_judgment": judgment,
+        **cart_stats,
+    }
+
+
 def build_summary(
     rows: list[dict[str, Any]], *, target_baseline_count: int, scope: str = "homepage"
 ) -> dict[str, Any]:
@@ -1456,8 +1488,15 @@ def write_outputs(
     json_path = run_dir / "raw.json"
     md_path = output_path(run_dir, "basic_profile_analysis.md")
     cart_md_path = output_path(run_dir, "cart_profile_analysis.md")
-    summary = build_summary(rows, target_baseline_count=target_baseline_count)
+    normal_analysis_rows = baseline_rows(rows)
     cart_analysis_rows = homepage_cart_rows(rows)
+    route = analysis_route(rows)
+    raw["analysis_route"] = route
+    summary = (
+        build_summary(rows, target_baseline_count=target_baseline_count)
+        if normal_analysis_rows
+        else None
+    )
     cart_summary = (
         build_summary(
             cart_analysis_rows,
@@ -1468,29 +1507,41 @@ def write_outputs(
         else None
     )
 
-    with posts_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
-        post_labels = [label for _, label in POSTS_CSV_COLUMNS]
-        writer = csv.DictWriter(f, fieldnames=post_labels)
-        writer.writeheader()
-        writer.writerows(
-            localized_row(row, POSTS_CSV_COLUMNS)
-            for row in rows
-            if row.get("included_in_baseline") == "yes"
+    paths = {"json": str(json_path)}
+
+    if normal_analysis_rows and summary:
+        with posts_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
+            post_labels = [label for _, label in POSTS_CSV_COLUMNS]
+            writer = csv.DictWriter(f, fieldnames=post_labels)
+            writer.writeheader()
+            writer.writerows(localized_row(row, POSTS_CSV_COLUMNS) for row in normal_analysis_rows)
+        mirror_legacy(posts_csv_path, run_dir, "creator_posts.csv")
+        with summary_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
+            summary_labels = [label for _, label in SUMMARY_CSV_COLUMNS]
+            writer = csv.DictWriter(f, fieldnames=summary_labels)
+            writer.writeheader()
+            writer.writerow(localized_row(summary, SUMMARY_CSV_COLUMNS))
+        mirror_legacy(summary_csv_path, run_dir, "interaction_summary.csv")
+        raw["summary"] = summary
+        md_path.write_text(build_analysis(rows, target, summary), encoding="utf-8")
+        mirror_legacy(md_path, run_dir, "basic_profile_analysis.md")
+        paths.update(
+            {
+                "posts_csv": str(posts_csv_path),
+                "summary_csv": str(summary_csv_path),
+                "analysis": str(md_path),
+            }
         )
-    mirror_legacy(posts_csv_path, run_dir, "creator_posts.csv")
-    with cart_posts_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
-        post_labels = [label for _, label in POSTS_CSV_COLUMNS]
-        writer = csv.DictWriter(f, fieldnames=post_labels)
-        writer.writeheader()
-        writer.writerows(localized_row(row, POSTS_CSV_COLUMNS) for row in homepage_cart_rows(rows))
-    mirror_legacy(cart_posts_csv_path, run_dir, "cart_posts.csv")
-    with summary_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
-        summary_labels = [label for _, label in SUMMARY_CSV_COLUMNS]
-        writer = csv.DictWriter(f, fieldnames=summary_labels)
-        writer.writeheader()
-        writer.writerow(localized_row(summary, SUMMARY_CSV_COLUMNS))
-    mirror_legacy(summary_csv_path, run_dir, "interaction_summary.csv")
-    raw["summary"] = summary
+
+    if cart_analysis_rows:
+        with cart_posts_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
+            post_labels = [label for _, label in POSTS_CSV_COLUMNS]
+            writer = csv.DictWriter(f, fieldnames=post_labels)
+            writer.writeheader()
+            writer.writerows(localized_row(row, POSTS_CSV_COLUMNS) for row in cart_analysis_rows)
+        mirror_legacy(cart_posts_csv_path, run_dir, "cart_posts.csv")
+        paths["cart_posts_csv"] = str(cart_posts_csv_path)
+
     if cart_summary:
         with cart_summary_csv_path.open("w", newline="", encoding="utf-8-sig") as f:
             summary_labels = [label for _, label in SUMMARY_CSV_COLUMNS]
@@ -1499,23 +1550,14 @@ def write_outputs(
             writer.writerow(localized_row(cart_summary, SUMMARY_CSV_COLUMNS))
         mirror_legacy(cart_summary_csv_path, run_dir, "cart_interaction_summary.csv")
         raw["cart_summary"] = cart_summary
-    json_path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
-    md_path.write_text(build_analysis(rows, target, summary), encoding="utf-8")
-    mirror_legacy(md_path, run_dir, "basic_profile_analysis.md")
-    paths = {
-        "posts_csv": str(posts_csv_path),
-        "cart_posts_csv": str(cart_posts_csv_path),
-        "summary_csv": str(summary_csv_path),
-        "json": str(json_path),
-        "analysis": str(md_path),
-    }
-    if cart_summary:
         cart_md_path.write_text(
             build_analysis(cart_analysis_rows, target, cart_summary, scope="cart"), encoding="utf-8"
         )
         mirror_legacy(cart_md_path, run_dir, "cart_profile_analysis.md")
         paths["cart_summary_csv"] = str(cart_summary_csv_path)
         paths["cart_analysis"] = str(cart_md_path)
+
+    json_path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
     return paths
 
 

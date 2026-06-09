@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import statistics
 from pathlib import Path
 
@@ -112,14 +113,38 @@ def text_field(row: dict[str, str], *names: str) -> str:
     return ""
 
 
+def route_mode(run_dir: Path) -> str:
+    raw_path = run_dir / "raw.json"
+    if not raw_path.exists():
+        return ""
+    try:
+        raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    route = raw.get("analysis_route")
+    if isinstance(route, dict):
+        return str(route.get("mode") or "")
+    return ""
+
+
 def find_input_path(run_dir: Path) -> Path:
+    cart_preferred = existing_output_path(run_dir, "cart_content_asset_posts.csv")
+    if route_mode(run_dir) == "cart_only" and cart_preferred.exists():
+        return cart_preferred
     preferred = existing_output_path(run_dir, "content_asset_posts.csv")
     if preferred.exists():
         return preferred
-    fallback = existing_output_path(run_dir, "creator_posts.csv")
-    if fallback.exists():
-        return fallback
-    raise FileNotFoundError("Need content_asset_posts.csv or creator_posts.csv in run_dir.")
+    if cart_preferred.exists():
+        return cart_preferred
+    normal_fallback = existing_output_path(run_dir, "creator_posts.csv")
+    if normal_fallback.exists():
+        return normal_fallback
+    cart_fallback = existing_output_path(run_dir, "cart_posts.csv")
+    if cart_fallback.exists():
+        return cart_fallback
+    raise FileNotFoundError(
+        "Need content_asset_posts.csv/cart_content_asset_posts.csv or creator_posts.csv/cart_posts.csv in run_dir."
+    )
 
 
 def is_category_related(row: dict[str, str]) -> bool:

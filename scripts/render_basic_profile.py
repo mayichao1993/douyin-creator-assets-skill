@@ -15,7 +15,7 @@ from collect_creator_assets import (
     build_analysis,
     humanize_cell,
 )
-from output_names import existing_output_path, mirror_legacy, output_path
+from output_names import existing_output_path, legacy_path, mirror_legacy, output_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,24 +84,52 @@ def ensure_cart_summary(run_dir: Path, raw: dict[str, Any]) -> dict[str, Any] | 
     return read_summary_csv(existing_output_path(run_dir, "cart_interaction_summary.csv"))
 
 
+def remove_generated(run_dir: Path, legacy_name: str) -> None:
+    for path in {output_path(run_dir, legacy_name), legacy_path(run_dir, legacy_name)}:
+        if path.exists():
+            path.unlink()
+
+
+def should_render_normal(summary: dict[str, Any] | None, route: dict[str, Any]) -> bool:
+    if not summary:
+        return False
+    if route.get("mode") == "cart_only":
+        return False
+    try:
+        return int(float(str(summary.get("baseline_sample_count") or 0))) > 0
+    except Exception:
+        return True
+
+
 def main() -> int:
     args = parse_args()
     run_dir = Path(args.run_dir)
     raw = load_raw(run_dir)
     target = str(raw.get("input") or raw.get("normalized_url") or run_dir)
-    summary = ensure_summary(run_dir, raw)
+    route = raw.get("analysis_route") if isinstance(raw.get("analysis_route"), dict) else {}
+    summary = None
+    try:
+        summary = ensure_summary(run_dir, raw)
+    except FileNotFoundError:
+        summary = None
     cart_summary = ensure_cart_summary(run_dir, raw)
 
-    basic_path = output_path(run_dir, "basic_profile_analysis.md")
-    basic_path.write_text(build_analysis([], target, summary), encoding="utf-8")
-    mirror_legacy(basic_path, run_dir, "basic_profile_analysis.md")
+    paths: dict[str, str] = {}
+    if should_render_normal(summary, route):
+        basic_path = output_path(run_dir, "basic_profile_analysis.md")
+        basic_path.write_text(build_analysis([], target, summary), encoding="utf-8")
+        mirror_legacy(basic_path, run_dir, "basic_profile_analysis.md")
+        paths["basic_profile_analysis"] = str(basic_path)
+    else:
+        remove_generated(run_dir, "basic_profile_analysis.md")
 
-    paths = {"basic_profile_analysis": str(basic_path)}
     if cart_summary:
         cart_path = output_path(run_dir, "cart_profile_analysis.md")
         cart_path.write_text(build_analysis([], target, cart_summary, scope="cart"), encoding="utf-8")
         mirror_legacy(cart_path, run_dir, "cart_profile_analysis.md")
         paths["cart_profile_analysis"] = str(cart_path)
+    else:
+        remove_generated(run_dir, "cart_profile_analysis.md")
 
     print(json.dumps({"status": "ok", "paths": paths}, ensure_ascii=False, indent=2))
     return 0

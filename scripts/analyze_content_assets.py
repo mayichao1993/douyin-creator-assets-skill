@@ -11,7 +11,7 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-from output_names import existing_output_path, mirror_legacy, output_path
+from output_names import existing_output_path, legacy_path, mirror_legacy, output_path
 
 
 POST_COLUMNS = [
@@ -47,6 +47,18 @@ def parse_args() -> argparse.Namespace:
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8-sig") as f:
         return list(csv.DictReader(f))
+
+
+def read_csv_if_exists(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    return read_csv(path)
+
+
+def remove_generated(run_dir: Path, legacy_name: str) -> None:
+    for path in {output_path(run_dir, legacy_name), legacy_path(run_dir, legacy_name)}:
+        if path.exists():
+            path.unlink()
 
 
 def safe_int(value: Any) -> int:
@@ -554,10 +566,15 @@ def main() -> int:
     posts_path = existing_output_path(run_dir, "creator_posts.csv")
     cart_posts_path = existing_output_path(run_dir, "cart_posts.csv")
     raw_path = run_dir / "raw.json"
-    rows = read_csv(posts_path)
-    cart_rows_for_analysis = read_csv(cart_posts_path) if cart_posts_path.exists() else []
+    rows = read_csv_if_exists(posts_path)
+    cart_rows_for_analysis = read_csv_if_exists(cart_posts_path)
     raw = json.loads(raw_path.read_text(encoding="utf-8")) if raw_path.exists() else {}
     items_by_id = {str(item.get("aweme_id")): item for item in raw.get("items", [])}
+
+    result = {
+        "stage": "2A_content_asset_coarse_screen",
+        "route": raw.get("analysis_route", {}).get("mode") if isinstance(raw.get("analysis_route"), dict) else "",
+    }
 
     if rows:
         out_csv, out_md, row_count = write_content_outputs(
@@ -568,15 +585,10 @@ def main() -> int:
             md_name="content_asset_analysis.md",
             source_label="第一项非置顶、非挂车主页普通作品",
         )
+        result.update({"posts_csv": str(out_csv), "analysis": str(out_md), "rows": row_count})
     else:
-        out_csv, out_md, row_count = write_content_outputs(
-            rows=cart_rows_for_analysis,
-            items_by_id=items_by_id,
-            run_dir=run_dir,
-            csv_name="content_asset_posts.csv",
-            md_name="content_asset_analysis.md",
-            source_label="第一项单独拆出的挂车短视频",
-        )
+        remove_generated(run_dir, "content_asset_posts.csv")
+        remove_generated(run_dir, "content_asset_analysis.md")
 
     cart_out_csv = cart_out_md = None
     cart_row_count = 0
@@ -589,14 +601,6 @@ def main() -> int:
             md_name="cart_content_asset_analysis.md",
             source_label="第一项单独拆出的挂车短视频",
         )
-
-    result = {
-        "stage": "2A_content_asset_coarse_screen",
-        "posts_csv": str(out_csv),
-        "analysis": str(out_md),
-        "rows": row_count,
-    }
-    if cart_out_csv and cart_out_md:
         result.update(
             {
                 "cart_posts_csv": str(cart_out_csv),
@@ -604,6 +608,13 @@ def main() -> int:
                 "cart_rows": cart_row_count,
             }
         )
+    else:
+        remove_generated(run_dir, "cart_content_asset_posts.csv")
+        remove_generated(run_dir, "cart_content_asset_analysis.md")
+
+    if not rows and not cart_rows_for_analysis:
+        raise FileNotFoundError("Need creator_posts.csv or cart_posts.csv with at least one row.")
+
     print(
         json.dumps(result, ensure_ascii=False)
     )
